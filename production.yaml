@@ -1,0 +1,17 @@
+environment: production
+log_level: INFO
+log_file: /var/log/titanic_ml.log
+
+streamlit:
+  port: 8080
+  host: "0.0.0.0"
+  theme: "dark"
+
+ml_pipeline:
+  data_path: "datasets/TitanicDataset.csv"
+  models_dir: "models"
+  plots_dir: "plots"
+
+ui:
+  show_technical_details: false
+  enable_data_export: true

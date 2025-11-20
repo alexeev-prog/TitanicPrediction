@@ -1,0 +1,18 @@
+environment: development
+log_level: DEBUG
+log_file: "logs/titanic_ml.log"
+
+streamlit:
+  port: 8501
+  host: "localhost"
+  theme: "light"
+
+ml_pipeline:
+  data_path: "datasets/TitanicDataset.csv"
+  models_dir: "models"
+  plots_dir: "plots"
+
+ui:
+  show_technical_details: true
+  enable_data_export: true
+  auto_generate_plots: true
