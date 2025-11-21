@@ -18,6 +18,7 @@ from sklearn.model_selection import KFold
 from titanicprediction.core.algorithms import gradient_descent, predict, predict_proba
 from titanicprediction.data.preprocessing import DataPreprocessor
 from titanicprediction.entities.core import Dataset, Passenger, TrainedModel
+from sklearn.preprocessing import PolynomialFeatures
 
 
 @dataclass(frozen=True)
@@ -106,6 +107,9 @@ class IPredictionService(Protocol):
 class ModelTrainingService:
     def __init__(self, preprocessor: DataPreprocessor):
         self.preprocessor = preprocessor
+        self.poly_transformer = None
+        self.X_mean = None
+        self.X_std = None
 
     def train_model(self, dataset: Dataset, config: TrainingConfig) -> TrainingResult:
         start_time = time.time()
@@ -116,14 +120,14 @@ class ModelTrainingService:
 
         original_numeric_feature_names = numeric_features.columns.tolist()
 
-        from sklearn.preprocessing import PolynomialFeatures
+        self.poly_transformer = PolynomialFeatures(
+            degree=2, include_bias=False, interaction_only=True
+        )
+        X_train_poly = self.poly_transformer.fit_transform(X_train)
 
-        poly = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
-        X_train_poly = poly.fit_transform(X_train)
-
-        self.poly_transformer = poly
-
-        poly_feature_names = poly.get_feature_names_out(original_numeric_feature_names)
+        poly_feature_names = self.poly_transformer.get_feature_names_out(
+            original_numeric_feature_names
+        )
 
         self.X_mean = np.mean(X_train_poly, axis=0)
         self.X_std = np.std(X_train_poly, axis=0)
@@ -150,6 +154,12 @@ class ModelTrainingService:
             validation_metrics={},
             training_history=result.loss_history,
             model_config=config.__dict__,
+            preprocessing_artifacts={
+                "poly_transformer": self.poly_transformer,
+                "X_mean": self.X_mean,
+                "X_std": self.X_std,
+                "original_feature_names": original_numeric_feature_names,
+            },
         )
 
         return TrainingResult(
@@ -298,6 +308,7 @@ class PredictionService:
     def __init__(self, model: TrainedModel, preprocessor: DataPreprocessor):
         self.model = model
         self.preprocessor = preprocessor
+        self.preprocessing_artifacts = model.preprocessing_artifacts
 
     def predict_survival(self, passenger: Passenger) -> PredictionResult:
         try:
@@ -311,31 +322,32 @@ class PredictionService:
             )
 
             processed_data = self.preprocessor.transform(dummy_dataset)
-
             numeric_features = processed_data.features.select_dtypes(
                 include=[np.number]
             )
             X_pred_original = numeric_features.values.astype(np.float64)
 
-            if hasattr(self, "poly_transformer"):
-                X_pred_poly = self.poly_transformer.transform(X_pred_original)
-            else:
-                X_pred_poly = X_pred_original
+            if (
+                self.preprocessing_artifacts
+                and "poly_transformer" in self.preprocessing_artifacts
+            ):
+                poly_transformer = self.preprocessing_artifacts["poly_transformer"]
+                X_pred_poly = poly_transformer.transform(X_pred_original)
 
-            if np.any(np.isnan(X_pred_poly)):
-                raise ValueError("NaN values in features after preprocessing")
-
-            if hasattr(self, "X_mean") and hasattr(self, "X_std"):
-                X_pred = (X_pred_poly - self.X_mean) / self.X_std
+                if (
+                    "X_mean" in self.preprocessing_artifacts
+                    and "X_std" in self.preprocessing_artifacts
+                ):
+                    X_mean = self.preprocessing_artifacts["X_mean"]
+                    X_std = self.preprocessing_artifacts["X_std"]
+                    X_pred = (X_pred_poly - X_mean) / X_std
+                else:
+                    X_pred = X_pred_poly
             else:
-                X_pred = X_pred_poly
+                X_pred = X_pred_original
 
             if X_pred.shape[1] != len(self.model.feature_names):
-                raise ValueError(
-                    f"Feature dimension mismatch for prediction: "
-                    f"model expects {len(self.model.feature_names)} features, "
-                    f"but got {X_pred.shape[1]} after preprocessing"
-                )
+                X_pred = self._align_features(X_pred, self.model.feature_names)
 
             probability = predict_proba(X_pred, self.model.weights, self.model.bias)[0]
 
@@ -363,18 +375,20 @@ class PredictionService:
                 timestamp=datetime.now(),
             )
 
-    def _align_features_with_model(
-        self, features: pd.DataFrame, model: TrainedModel
-    ) -> pd.DataFrame:
-        aligned_features = pd.DataFrame()
+    def _align_features(
+        self, features: np.ndarray, expected_feature_names: List[str]
+    ) -> np.ndarray:
+        expected_count = len(expected_feature_names)
+        current_count = features.shape[1]
 
-        for feature in model.feature_names:
-            if feature in features.columns:
-                aligned_features[feature] = features[feature]
-            else:
-                aligned_features[feature] = 0.0
+        if current_count == expected_count:
+            return features
 
-        aligned_features = aligned_features[model.feature_names]
+        aligned_features = np.zeros((features.shape[0], expected_count))
+
+        min_features = min(current_count, expected_count)
+        aligned_features[:, :min_features] = features[:, :min_features]
+
         return aligned_features
 
     def batch_predict(self, passengers: List[Passenger]) -> List[PredictionResult]:

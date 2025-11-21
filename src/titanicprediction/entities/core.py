@@ -148,6 +148,7 @@ class TrainedModel:
     validation_metrics: Dict[str, float]
     training_history: List[float]
     model_config: Dict[str, Any]
+    preprocessing_artifacts: Optional[Dict[str, Any]] = None
 
     def predict(self, features: np.ndarray) -> np.ndarray:
         if features.shape[1] != len(self.feature_names):

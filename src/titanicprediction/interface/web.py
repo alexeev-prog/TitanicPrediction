@@ -520,6 +520,10 @@ class ModelTrainingPage:
                 state["training_history"] = training_result.learning_curve
                 state["training_result"] = training_result
 
+                state["preprocessing_artifacts"] = (
+                    training_result.model.preprocessing_artifacts
+                )
+
                 st.success("Model trained successfully!")
                 st.rerun()
 
@@ -610,6 +614,13 @@ class PredictionPage:
             st.warning("Please train a model first from the Model Training page.")
             return
 
+        with st.expander("Model Debug Info"):
+            model = state["trained_model"]
+            st.write(f"Number of features in model: {len(model.feature_names)}")
+            st.write(f"Feature names: {model.feature_names}")
+            st.write(f"Model weights shape: {model.weights.shape}")
+            st.write(f"Model bias: {model.bias}")
+
         st.header("Make a Prediction")
 
         form_component = PredictionFormComponent()
@@ -636,10 +647,17 @@ class PredictionPage:
 
                 state["current_predictions"].append(prediction_result)
 
+                with st.expander("Prediction Debug Info"):
+                    st.write(f"Probability: {prediction_result.probability:.4f}")
+                    st.write(f"Prediction: {prediction_result.prediction}")
+                    st.write(f"Confidence: {prediction_result.confidence:.4f}")
+                    st.write(f"Passenger features: {passenger}")
+
                 self._render_prediction_result(prediction_result)
 
         except Exception as e:
             st.error(f"Error making prediction: {e}")
+            st.error(f"Detailed error: {str(e)}")
 
     def _render_prediction_result(self, prediction: Any) -> None:
         st.header("Prediction Result")
