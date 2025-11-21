@@ -314,6 +314,244 @@ class HomePage:
             )
 
 
+class ModelExplanationPage:
+    def render(self, state: AppState) -> None:
+        st.title("🔍 Model Explanation & Analysis")
+
+        if state.get("trained_model") is None:
+            st.warning("Please train a model first from the Model Training page.")
+            return
+
+        model = state["trained_model"]
+        dataset = state["dataset"]
+
+        tab1, tab2, tab3, tab4 = st.tabs(
+            [
+                "Feature Importance",
+                "Prediction Analysis",
+                "Model Insights",
+                "Advanced Analytics",
+            ]
+        )
+
+        with tab1:
+            self._render_feature_importance(state, model, dataset)
+
+        with tab2:
+            self._render_prediction_analysis(state)
+
+        with tab3:
+            self._render_model_insights(state, model, dataset)
+
+        with tab4:
+            self._render_advanced_analytics(state, model, dataset)
+
+    def _render_feature_importance(
+        self, state: AppState, model: TrainedModel, dataset: Dataset
+    ):
+        st.subheader("Feature Importance Analysis")
+
+        importance_data = model.get_feature_importance()
+        sorted_importance = dict(
+            sorted(importance_data.items(), key=lambda x: x[1], reverse=True)
+        )
+
+        col1, col2 = st.columns([2, 1])
+
+        with col1:
+            fig = px.bar(
+                x=list(sorted_importance.values())[:15],
+                y=list(sorted_importance.keys())[:15],
+                orientation="h",
+                title="Top 15 Most Important Features",
+                labels={"x": "Importance (%)", "y": "Features"},
+            )
+            fig.update_layout(showlegend=False, height=500)
+            st.plotly_chart(fig, width="stretch")
+
+        with col2:
+            st.subheader("Feature Statistics")
+            st.metric("Total Features", len(sorted_importance))
+
+            top_5_importance = sum(list(sorted_importance.values())[:5])
+            st.metric("Top 5 Features Contribution", f"{top_5_importance:.1f}%")
+
+            st.write("**Top 5 Features:**")
+            for i, (feature, importance) in enumerate(
+                list(sorted_importance.items())[:5]
+            ):
+                st.write(f"{i + 1}. {feature}: {importance:.2f}%")
+
+    def _render_prediction_analysis(self, state: AppState):
+        st.subheader("Individual Prediction Analysis")
+
+        if not state.get("current_predictions"):
+            st.info("Make some predictions first to see detailed analysis.")
+            return
+
+        latest_pred = state["current_predictions"][-1]
+        model = state["trained_model"]
+        preprocessor = state["preprocessing_pipeline"]
+
+        prediction_service = ServiceFactory.create_prediction_service(
+            model, preprocessor
+        )
+        explanation_service = ServiceFactory.create_explanation_service(
+            prediction_service
+        )
+
+        explanation = explanation_service.explain_prediction(latest_pred.passenger)
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.subheader("Prediction Details")
+            st.metric("Survival Probability", f"{explanation.probability:.1%}")
+            st.metric(
+                "Final Prediction",
+                "Survived" if explanation.prediction else "Did Not Survive",
+            )
+            st.metric("Confidence Level", explanation.confidence_level)
+
+            passenger = latest_pred.passenger
+            st.write("**Passenger Features:**")
+            feature_data = {
+                "Class": passenger.pclass,
+                "Gender": passenger.sex,
+                "Age": passenger.age,
+                "Siblings/Spouses": passenger.sibsp,
+                "Parents/Children": passenger.parch,
+                "Fare": f"${passenger.fare:.2f}",
+                "Embarked": passenger.embarked,
+            }
+
+            for key, value in feature_data.items():
+                st.write(f"- **{key}:** {value}")
+
+        with col2:
+            st.subheader("Decision Factors")
+            for factor in explanation.decision_factors:
+                st.write(f"• {factor}")
+
+            st.subheader("Top Feature Impacts")
+            impact_df = pd.DataFrame(
+                [
+                    {
+                        "feature": impact.feature_name,
+                        "impact": impact.impact_score,
+                        "contribution": f"{impact.contribution:.1%}",
+                    }
+                    for impact in explanation.feature_impacts[:10]
+                ]
+            )
+
+            fig = px.bar(
+                impact_df,
+                x="impact",
+                y="feature",
+                orientation="h",
+                title="Top 10 Features Influencing This Prediction",
+                color=impact_df["impact"] > 0,
+                color_discrete_map={True: "green", False: "red"},
+            )
+            fig.update_layout(showlegend=False)
+            st.plotly_chart(fig, width="stretch")
+
+    def _render_model_insights(
+        self, state: AppState, model: TrainedModel, dataset: Dataset
+    ):
+        st.subheader("Model Performance Insights")
+
+        if state.get("training_result"):
+            training_result = state["training_result"]
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.write("**Training Statistics:**")
+                st.write(f"- Final Loss: {training_result.final_loss:.6f}")
+                st.write(f"- Training Time: {training_result.training_time:.2f}s")
+                st.write(f"- Learning Rate: {training_result.config.learning_rate}")
+                st.write(f"- Epochs: {training_result.config.epochs}")
+
+            with col2:
+                st.write("**Model Configuration:**")
+                st.write(f"- Regularization: {training_result.config.lambda_reg}")
+                st.write(f"- Convergence Tol: {training_result.config.convergence_tol}")
+                st.write("- Optimizer: Adam")
+
+        st.subheader("Decision Boundary Analysis")
+
+        feature1 = st.selectbox(
+            "First Feature", options=dataset.feature_names[:10], index=0, key="feature1"
+        )
+        feature2 = st.selectbox(
+            "Second Feature",
+            options=dataset.feature_names[:10],
+            index=1,
+            key="feature2",
+        )
+
+        if st.button("Generate 2D Analysis"):
+            self._generate_2d_analysis(feature1, feature2, model, dataset)
+
+    def _generate_2d_analysis(
+        self, feature1: str, feature2: str, model: TrainedModel, dataset: Dataset
+    ):
+        try:
+            fig = px.scatter(
+                dataset.features.assign(Survived=dataset.target),
+                x=feature1,
+                y=feature2,
+                color="Survived",
+                title=f"Decision Pattern: {feature1} vs {feature2}",
+                color_discrete_map={0: "red", 1: "green"},
+            )
+            st.plotly_chart(fig, width="stretch")
+        except Exception as e:
+            st.error(f"Could not generate 2D analysis: {e}")
+
+    def _render_advanced_analytics(
+        self, state: AppState, model: TrainedModel, dataset: Dataset
+    ):
+        st.subheader("Advanced Model Analytics")
+
+        preprocessor = state["preprocessing_pipeline"]
+        prediction_service = ServiceFactory.create_prediction_service(
+            model, preprocessor
+        )
+        explanation_service = ServiceFactory.create_explanation_service(
+            prediction_service
+        )
+
+        if st.button("Run Model Diagnostics"):
+            with st.spinner("Running comprehensive diagnostics..."):
+                model_stats = explanation_service.get_model_statistics(model)
+
+                col1, col2, col3 = st.columns(3)
+
+                with col1:
+                    st.metric("Model Complexity", model_stats["total_features"])
+                    st.metric(
+                        "Weight Magnitude", f"{model_stats['weight_magnitude']:.4f}"
+                    )
+
+                with col2:
+                    st.metric("Positive Weights", model_stats["positive_weights"])
+                    st.metric("Negative Weights", model_stats["negative_weights"])
+
+                with col3:
+                    weight_range = f"{model_stats['weight_range']['min']:.3f} to {model_stats['weight_range']['max']:.3f}"
+                    st.metric("Weight Range", weight_range)
+                    st.metric("Bias Term", f"{model_stats['bias']:.4f}")
+
+                st.subheader("Weight Distribution")
+                fig = px.histogram(
+                    x=model.weights, nbins=50, title="Distribution of Model Weights"
+                )
+                st.plotly_chart(fig, width="stretch")
+
+
 class DataAnalysisPage:
     def render(self, state: AppState) -> None:
         st.title("📊 Data Analysis")
@@ -389,6 +627,23 @@ class DataAnalysisPage:
                 except Exception as e:
                     st.error(f"Error processing file: {e}")
 
+    def _create_interactive_plots(self, dataset: Dataset):
+        st.subheader("Интерактивный анализ выживаемости")
+
+        x_axis = st.selectbox("Ось X", ["Age", "Fare", "Pclass"])
+        y_axis = st.selectbox("Ось Y", ["Fare", "Age", "SibSp"])
+        color_by = st.selectbox("Цвет по", ["Survived", "Pclass", "Sex"])
+
+        fig = px.scatter(
+            dataset.features.assign(Survived=dataset.target),
+            x=x_axis,
+            y=y_axis,
+            color=color_by,
+            hover_data=["Name"],
+            title=f"{y_axis} vs {x_axis} по {color_by}",
+        )
+        st.plotly_chart(fig)
+
     def _render_data_analysis(self, state: AppState) -> None:
         dataset = state["dataset"]
 
@@ -413,6 +668,8 @@ class DataAnalysisPage:
             st.json(categorical_stats)
 
         st.header("Data Visualizations")
+
+        self._create_interactive_plots(dataset=dataset)
 
         if st.button("Generate Analysis Plots", type="primary"):
             with st.spinner("Creating visualizations..."):
@@ -523,6 +780,13 @@ class ModelTrainingPage:
                 state["preprocessing_artifacts"] = (
                     training_result.model.preprocessing_artifacts
                 )
+
+                if hasattr(training_service, "poly_transformer"):
+                    state["trained_model"].preprocessing_artifacts = {
+                        "poly_transformer": training_service.poly_transformer,
+                        "X_mean": getattr(training_service, "X_mean", None),
+                        "X_std": getattr(training_service, "X_std", None),
+                    }
 
                 st.success("Model trained successfully!")
                 st.rerun()
@@ -742,6 +1006,7 @@ class TitanicApp:
             "Home": HomePage(),
             "Data Analysis": DataAnalysisPage(),
             "Model Training": ModelTrainingPage(),
+            "Model Explanation": ModelExplanationPage(),
             "Predictions": PredictionPage(),
         }
         self.app_config = app_config or {}

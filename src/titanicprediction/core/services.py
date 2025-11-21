@@ -17,7 +17,13 @@ from sklearn.model_selection import KFold
 
 from titanicprediction.core.algorithms import gradient_descent, predict, predict_proba
 from titanicprediction.data.preprocessing import DataPreprocessor
-from titanicprediction.entities.core import Dataset, Passenger, TrainedModel
+from titanicprediction.entities.core import (
+    Dataset,
+    Passenger,
+    TrainedModel,
+    FeatureImpactAnalysis,
+    PredictionExplanation,
+)
 from sklearn.preprocessing import PolynomialFeatures
 
 
@@ -28,6 +34,7 @@ class TrainingConfig:
     test_size: float = 0.2
     random_state: int = 42
     convergence_tol: float = 1e-6
+    lambda_reg: float = 0.01
 
 
 @dataclass(frozen=True)
@@ -142,6 +149,7 @@ class ModelTrainingService:
             learning_rate=config.learning_rate,
             epochs=config.epochs,
             convergence_tol=config.convergence_tol,
+            lambda_reg=config.lambda_reg,
         )
 
         training_time = time.time() - start_time
@@ -176,6 +184,11 @@ class ModelTrainingService:
         self, model: TrainedModel, test_data: Dataset
     ) -> EvaluationResult:
         processed_test = self.preprocessor.transform(test_data)
+
+        preprocessing_artifacts = model.preprocessing_artifacts
+        self.poly_transformer = preprocessing_artifacts["poly_transformer"]
+        self.X_mean = preprocessing_artifacts["X_mean"]
+        self.X_std = preprocessing_artifacts["X_std"]
 
         numeric_test_features = processed_test.features.select_dtypes(
             include=[np.number]
@@ -428,6 +441,123 @@ class PredictionService:
         return float(confidence)
 
 
+@dataclass
+class ModelExplanationService:
+    prediction_service: PredictionService
+
+    def explain_prediction(self, passenger: Passenger) -> PredictionExplanation:
+        prediction_result = self.prediction_service.predict_survival(passenger)
+        feature_impacts = self._calculate_feature_impacts(passenger)
+        decision_factors = self._extract_decision_factors(feature_impacts)
+        confidence_level = self._determine_confidence_level(
+            prediction_result.probability
+        )
+
+        return PredictionExplanation(
+            prediction=prediction_result.prediction,
+            probability=prediction_result.probability,
+            feature_impacts=feature_impacts,
+            decision_factors=decision_factors,
+            confidence_level=confidence_level,
+        )
+
+    def get_model_statistics(self, model: TrainedModel) -> Dict[str, Any]:
+        weights = model.weights
+        return {
+            "total_features": len(weights),
+            "weight_magnitude": float(np.linalg.norm(weights)),
+            "positive_weights": int(np.sum(weights > 0)),
+            "negative_weights": int(np.sum(weights < 0)),
+            "weight_range": {"min": float(weights.min()), "max": float(weights.max())},
+            "bias": float(model.bias),
+            "weight_mean": float(weights.mean()),
+            "weight_std": float(weights.std()),
+        }
+
+    def _calculate_feature_impacts(
+        self, passenger: Passenger
+    ) -> List[FeatureImpactAnalysis]:
+        model = self.prediction_service.model
+        preprocessor = self.prediction_service.preprocessor
+
+        passenger_df = self.prediction_service._passenger_to_dataframe(passenger)
+        dummy_dataset = Dataset(
+            features=passenger_df,
+            target=None,
+            feature_names=list(passenger_df.columns),
+            target_name="dummy",
+        )
+
+        processed_data = preprocessor.transform(dummy_dataset)
+        numeric_features = processed_data.features.select_dtypes(include=[np.number])
+        X_original = numeric_features.values.astype(np.float64)
+
+        preprocessing_artifacts = model.preprocessing_artifacts
+        if preprocessing_artifacts and "poly_transformer" in preprocessing_artifacts:
+            poly_transformer = preprocessing_artifacts["poly_transformer"]
+            X_poly = poly_transformer.transform(X_original)
+
+            if (
+                "X_mean" in preprocessing_artifacts
+                and "X_std" in preprocessing_artifacts
+            ):
+                X_mean = preprocessing_artifacts["X_mean"]
+                X_std = preprocessing_artifacts["X_std"]
+                X = (X_poly - X_mean) / X_std
+            else:
+                X = X_poly
+        else:
+            X = X_original
+
+        if X.shape[1] != len(model.feature_names):
+            aligned_X = np.zeros((X.shape[0], len(model.feature_names)))
+            min_features = min(X.shape[1], len(model.feature_names))
+            aligned_X[:, :min_features] = X[:, :min_features]
+            X = aligned_X
+
+        feature_impacts = []
+        for i, feature_name in enumerate(model.feature_names):
+            if i < len(model.weights):
+                feature_value = X[0][i]
+                weight = model.weights[i]
+                impact = weight * feature_value
+                contribution = abs(impact) / (abs(np.dot(X[0], model.weights)) + 1e-10)
+
+                feature_impacts.append(
+                    FeatureImpactAnalysis(
+                        feature_name=feature_name,
+                        impact_score=float(impact),
+                        weight=float(weight),
+                        feature_value=float(feature_value),
+                        contribution=float(contribution),
+                    )
+                )
+
+        return sorted(feature_impacts, key=lambda x: abs(x.impact_score), reverse=True)
+
+    def _extract_decision_factors(
+        self, feature_impacts: List[FeatureImpactAnalysis]
+    ) -> List[str]:
+        factors = []
+        top_impacts = feature_impacts[:5]
+
+        for impact in top_impacts:
+            if impact.impact_score > 0:
+                factors.append(f"{impact.feature_name} increased survival chance")
+            else:
+                factors.append(f"{impact.feature_name} decreased survival chance")
+
+        return factors
+
+    def _determine_confidence_level(self, probability: float) -> str:
+        if probability > 0.8 or probability < 0.2:
+            return "High"
+        elif probability > 0.7 or probability < 0.3:
+            return "Medium"
+        else:
+            return "Low"
+
+
 class ServiceFactory:
     @staticmethod
     def create_training_service(preprocessor: DataPreprocessor) -> ModelTrainingService:
@@ -438,3 +568,9 @@ class ServiceFactory:
         model: TrainedModel, preprocessor: DataPreprocessor
     ) -> PredictionService:
         return PredictionService(model, preprocessor)
+
+    @staticmethod
+    def create_explanation_service(
+        prediction_service: PredictionService,
+    ) -> ModelExplanationService:
+        return ModelExplanationService(prediction_service)

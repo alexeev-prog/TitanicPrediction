@@ -191,3 +191,21 @@ class TrainedModel:
             importance_dict = {feature: 0.0 for feature in self.feature_names}
 
         return importance_dict
+
+
+@dataclass(frozen=True)
+class FeatureImpactAnalysis:
+    feature_name: str
+    impact_score: float
+    weight: float
+    feature_value: float
+    contribution: float
+
+
+@dataclass(frozen=True)
+class PredictionExplanation:
+    prediction: bool
+    probability: float
+    feature_impacts: List[FeatureImpactAnalysis]
+    decision_factors: List[str]
+    confidence_level: str

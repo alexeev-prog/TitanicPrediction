@@ -82,6 +82,70 @@ def compute_gradients(
 def gradient_descent(
     X: FloatArray,
     y: FloatArray,
+    learning_rate: float = 0.001,
+    epochs: int = 1000,
+    convergence_tol: float = 1e-6,
+    beta1: float = 0.9,
+    beta2: float = 0.999,
+    epsilon: float = 1e-8,
+    lambda_reg: float = 0.01,
+) -> GradientDescentResult:
+    n_features = X.shape[1]
+    weights = np.random.normal(0, 0.01, n_features)
+    bias = 0.0
+    loss_history = []
+
+    m_dw = np.zeros_like(weights)
+    m_db = 0.0
+    v_dw = np.zeros_like(weights)
+    v_db = 0.0
+
+    for epoch in range(1, epochs + 1):
+        z = np.dot(X, weights) + bias
+        predictions = sigmoid(z)
+
+        loss = binary_cross_entropy(y, predictions, weights, lambda_reg)
+        loss_history.append(loss)
+
+        dw, db = compute_gradients(X, y, predictions)
+        dw_reg = dw + (lambda_reg / len(y)) * weights
+
+        m_dw = beta1 * m_dw + (1 - beta1) * dw_reg
+        m_db = beta1 * m_db + (1 - beta1) * db
+        v_dw = beta2 * v_dw + (1 - beta2) * (dw_reg**2)
+        v_db = beta2 * v_db + (1 - beta2) * (db**2)
+
+        m_dw_corrected = m_dw / (1 - beta1**epoch)
+        m_db_corrected = m_db / (1 - beta1**epoch)
+        v_dw_corrected = v_dw / (1 - beta2**epoch)
+        v_db_corrected = v_db / (1 - beta2**epoch)
+
+        weights -= learning_rate * (
+            m_dw_corrected / (np.sqrt(v_dw_corrected) + epsilon)
+        )
+        bias -= learning_rate * (m_db_corrected / (np.sqrt(v_db_corrected) + epsilon))
+
+        if epoch > 100 and abs(loss_history[-2] - loss_history[-1]) < convergence_tol:
+            break
+
+    convergence_info = {
+        "final_loss": loss_history[-1],
+        "epochs_completed": len(loss_history),
+        "learning_rate": learning_rate,
+        "optimizer": "adam",
+    }
+
+    return GradientDescentResult(
+        weights=weights,
+        bias=bias,
+        loss_history=loss_history,
+        convergence_info=convergence_info,
+    )
+
+
+def standard_gradient_descent(
+    X: FloatArray,
+    y: FloatArray,
     learning_rate: float = 0.01,
     epochs: int = 1000,
     convergence_tol: float = 1e-6,
