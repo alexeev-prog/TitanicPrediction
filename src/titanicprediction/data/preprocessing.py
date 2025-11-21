@@ -1,15 +1,16 @@
-import pandas as pd
-from typing import Protocol, List, Dict, Any, Optional, Tuple, Literal
-from dataclasses import dataclass
 import re
+from dataclasses import dataclass
+from typing import Any, Dict, List, Literal, Optional, Protocol, Tuple
+
+import pandas as pd
 from loguru import logger
+from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import (
-    StandardScaler,
+    LabelEncoder,
     MinMaxScaler,
     RobustScaler,
-    LabelEncoder,
+    StandardScaler,
 )
-from sklearn.impute import SimpleImputer
 
 from titanicprediction.entities.core import Dataset
 

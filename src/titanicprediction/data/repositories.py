@@ -1,8 +1,10 @@
-import pandas as pd
 import pickle
 from pathlib import Path
-from typing import Protocol, Optional, Dict, List, Any
+from typing import Any, Dict, List, Optional, Protocol
+
+import pandas as pd
 from loguru import logger
+
 from titanicprediction.entities.core import Dataset, TrainedModel
 
 

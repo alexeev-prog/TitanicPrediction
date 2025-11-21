@@ -1,5 +1,5 @@
-from functools import wraps
 import tracemalloc
+from functools import wraps
 from time import perf_counter
 
 

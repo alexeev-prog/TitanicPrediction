@@ -1,21 +1,19 @@
-import streamlit as st
-import pandas as pd
-import sys
 import os
-import numpy as np
-from typing import Dict, List, Optional, Any, TypedDict
+import sys
 from pathlib import Path
+from typing import Any, Dict, List, Optional, TypedDict
+
+import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
+import streamlit as st
 
-from titanicprediction.entities.core import Dataset, TrainedModel, Passenger
-from titanicprediction.data.repositories import CSVDataRepository
-from titanicprediction.data.preprocessing import PreprocessorFactory
-from titanicprediction.core.services import (
-    ServiceFactory,
-)
+from titanicprediction.core.services import ServiceFactory, TrainingConfig
 from titanicprediction.data.analysis import EDAVisualizer
-from titanicprediction.core.services import TrainingConfig
+from titanicprediction.data.preprocessing import PreprocessorFactory
+from titanicprediction.data.repositories import CSVDataRepository
+from titanicprediction.entities.core import Dataset, Passenger, TrainedModel
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -224,7 +222,8 @@ class HomePage:
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            st.markdown("""
+            st.markdown(
+                """
             ### Project Overview
             This application demonstrates a complete Machine Learning pipeline for predicting
             passenger survival on the Titanic using logistic regression with gradient descent.
@@ -234,7 +233,8 @@ class HomePage:
             - **Model Training**: Custom implementation of logistic regression
             - **Real-time Predictions**: Interactive survival probability calculator
             - **Model Evaluation**: Comprehensive performance metrics and analysis
-            """)
+            """
+            )
 
         with col2:
             st.image(
@@ -251,35 +251,43 @@ class HomePage:
 
         with tech_cols[0]:
             st.subheader("🛠️ Core ML")
-            st.markdown("""
+            st.markdown(
+                """
             - Custom Logistic Regression
             - Gradient Descent
             - NumPy/Pandas
-            """)
+            """
+            )
 
         with tech_cols[1]:
             st.subheader("📊 Visualization")
-            st.markdown("""
+            st.markdown(
+                """
             - Matplotlib/Seaborn
             - Plotly
             - Streamlit
-            """)
+            """
+            )
 
         with tech_cols[2]:
             st.subheader("🏗️ Architecture")
-            st.markdown("""
+            st.markdown(
+                """
             - Clean Architecture
             - SOLID Principles
             - Repository Pattern
-            """)
+            """
+            )
 
         with tech_cols[3]:
             st.subheader("📈 Analysis")
-            st.markdown("""
+            st.markdown(
+                """
             - EDA Visualizations
             - Model Metrics
             - Statistical Analysis
-            """)
+            """
+            )
 
         st.markdown("---")
 
@@ -311,35 +319,53 @@ class DataAnalysisPage:
         st.title("📊 Data Analysis")
         st.markdown("---")
 
+        app_config = state.get("app_config", {})
+
         if state.get("dataset") is None:
-            self._render_data_loading(state)
+            self._render_data_loading(state, app_config)
         else:
             self._render_data_analysis(state)
 
-    def _render_data_loading(self, state: AppState) -> None:
+    def _render_data_loading(self, state: AppState, app_config: dict) -> None:
         st.header("Load Dataset")
 
         col1, col2 = st.columns(2)
 
         with col1:
             st.subheader("Use Demo Data")
+
+            data_path = app_config.get("ml_pipeline", {}).get(
+                "data_path", "datasets/TitanicDataset.csv"
+            )
+
+            st.write(f"Using data path: `{data_path}`")
+
             if st.button("Load Titanic Dataset", type="primary"):
                 with st.spinner("Loading dataset..."):
                     try:
-                        repo = CSVDataRepository(
-                            "datasets/TitanicDataset.csv", target_column="Survived"
-                        )
+                        repo = CSVDataRepository(data_path, target_column="Survived")
                         state["dataset"] = repo.load_data()
 
                         dataset = state["dataset"]
-
                         if dataset.target is not None:
                             dataset.target = dataset.target.astype(np.float64)
 
                         st.success("Dataset loaded successfully!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error loading dataset: {e}")
+                        st.error(f"Error loading dataset from {data_path}: {e}")
+                        fallback_path = "datasets/TitanicDataset.csv"
+                        if data_path != fallback_path:
+                            st.info(f"Trying fallback dataset: {fallback_path}")
+                            try:
+                                repo = CSVDataRepository(
+                                    fallback_path, target_column="Survived"
+                                )
+                                state["dataset"] = repo.load_data()
+                                st.success("Fallback dataset loaded successfully!")
+                                st.rerun()
+                            except Exception as fallback_e:
+                                st.error(f"Fallback also failed: {fallback_e}")
 
         with col2:
             st.subheader("Upload Custom Data")
@@ -442,9 +468,7 @@ class ModelTrainingPage:
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            learning_rate = st.slider(
-                "Learning Rate", 0.001, 0.5, 0.05, 0.001
-            )  # Увеличить диапазон
+            learning_rate = st.slider("Learning Rate", 0.001, 0.5, 0.05, 0.001)
             epochs = st.number_input("Epochs", 1000, 100000, 3000, 100)
 
         with col2:
@@ -457,7 +481,7 @@ class ModelTrainingPage:
                 1e-8,
                 1e-4,
                 1e-4,
-                1e-8,  # изменено с 1e-6 на 1e-4
+                1e-8,
             )
             batch_size = st.selectbox("Batch Size", ["full", 32, 64, 128], index=0)
 
@@ -695,13 +719,14 @@ class PredictionPage:
 
 
 class TitanicApp:
-    def __init__(self):
+    def __init__(self, app_config: dict = None):
         self.pages = {
             "Home": HomePage(),
             "Data Analysis": DataAnalysisPage(),
             "Model Training": ModelTrainingPage(),
             "Predictions": PredictionPage(),
         }
+        self.app_config = app_config or {}
 
     def run(self) -> None:
         st.set_page_config(
@@ -719,6 +744,7 @@ class TitanicApp:
                 "preprocessing_pipeline": None,
                 "current_predictions": [],
                 "training_history": [],
+                "app_config": self.app_config,  # Передаем конфиг в состояние
             }
 
         self._render_sidebar()
@@ -743,6 +769,11 @@ class TitanicApp:
 
             st.subheader("App Status")
 
+            app_config = st.session_state.app_state.get("app_config", {})
+            data_path = app_config.get("ml_pipeline", {}).get(
+                "data_path", "datasets/TitanicDataset.csv"
+            )
+
             dataset_status = (
                 "✅ Loaded"
                 if st.session_state.app_state.get("dataset")
@@ -756,6 +787,7 @@ class TitanicApp:
 
             st.write(f"Dataset: {dataset_status}")
             st.write(f"Model: {model_status}")
+            st.write(f"Data path: {data_path}")
 
             if st.session_state.app_state.get("dataset"):
                 dataset = st.session_state.app_state["dataset"]
@@ -773,6 +805,7 @@ class TitanicApp:
                     "current_predictions": [],
                     "training_history": [],
                     "training_result": None,
+                    "app_config": self.app_config,
                 }
                 st.rerun()
 

@@ -1,8 +1,8 @@
-from typing import Tuple, List, Dict, Any
 from dataclasses import dataclass
-from sklearn.preprocessing import PolynomialFeatures
+from typing import Any, Dict, List, Tuple
 
 import numpy as np
+from sklearn.preprocessing import PolynomialFeatures
 
 FloatArray = np.ndarray
 
@@ -42,7 +42,6 @@ def binary_cross_entropy(
         weight_neg = n_pos / len(y_true)
         weights_class = np.where(y_true == 1, weight_pos, weight_neg)
 
-        # Добавляем L2 регуляризацию
         loss = -np.mean(
             weights_class
             * (y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
@@ -61,14 +60,12 @@ def compute_gradients(
     m = len(y_true)
     error = y_pred - y_true
 
-    # АВТОМАТИЧЕСКОЕ ВЗВЕШИВАНИЕ КЛАССОВ ДЛЯ БОРЬБЫ С ДИСБАЛАНСОМ
     n_pos = np.sum(y_true)
     n_neg = len(y_true) - n_pos
 
     if n_pos > 0 and n_neg > 0:
-        # Взвешиваем классы обратно пропорционально их частоте
-        weight_neg = n_pos / len(y_true)  # Больший вес для меньшего класса (выжившие)
-        weight_pos = n_neg / len(y_true)  # Меньший вес для большего класса
+        weight_neg = n_pos / len(y_true)
+        weight_pos = n_neg / len(y_true)
 
         weights = np.where(y_true == 1, weight_pos, weight_neg)
         error = error * weights
@@ -76,7 +73,6 @@ def compute_gradients(
         dw = (1 / np.sum(weights)) * np.dot(X.T, error)
         db = (1 / np.sum(weights)) * np.sum(error)
     else:
-        # Стандартное вычисление градиента
         dw = (1 / m) * np.dot(X.T, error)
         db = (1 / m) * np.sum(error)
 
@@ -98,7 +94,6 @@ def gradient_descent(
     bias = 0.0
     loss_history = []
 
-    # Инициализация момента
     v_dw = np.zeros_like(weights)
     v_db = 0.0
 
@@ -111,10 +106,8 @@ def gradient_descent(
 
         dw, db = compute_gradients(X, y, predictions)
 
-        # Добавляем регуляризацию в градиенты
         dw_reg = dw + (lambda_reg / len(y)) * weights
 
-        # Обновление с моментом
         v_dw = beta * v_dw + (1 - beta) * dw_reg
         v_db = beta * v_db + (1 - beta) * db
 
@@ -151,9 +144,7 @@ def predict(
 ) -> FloatArray:
     probabilities = predict_proba(X, weights, bias)
 
-    # АВТОМАТИЧЕСКИЙ ПОДБОР ПОРОГА ДЛЯ БАЛАНСА PRECISION/RECALL
     if threshold is None:
-        # Используем оптимальный порог около 0.3-0.4 для улучшения recall
         threshold = 0.35
 
     return (probabilities >= threshold).astype(int)

@@ -1,11 +1,12 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from typing import Protocol, List, Dict, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from pathlib import Path
+from typing import Any, Dict, List, Protocol, Tuple
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from loguru import logger
 
 from titanicprediction.entities.core import Dataset, TrainedModel
@@ -56,6 +57,7 @@ class PlotResult:
 
 class IVisualizer(Protocol):
     def create_plot(self, data: Any, plot_config: PlotConfig) -> PlotResult: ...
+
     def save_plot(self, plot: PlotResult, filename: str) -> Path: ...
     def get_supported_formats(self) -> List[str]: ...
 

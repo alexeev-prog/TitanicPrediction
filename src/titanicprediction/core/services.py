@@ -1,23 +1,23 @@
-import numpy as np
-import pandas as pd
-from typing import Protocol, List, Dict, Any
+import time
 from dataclasses import dataclass
 from datetime import datetime
-import time
+from typing import Any, Dict, List, Protocol
+
+import numpy as np
+import pandas as pd
 from loguru import logger
 from sklearn.metrics import (
     accuracy_score,
+    confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    f1_score,
-    confusion_matrix,
 )
 from sklearn.model_selection import KFold
 
-from titanicprediction.entities.core import Dataset, TrainedModel, Passenger
+from titanicprediction.core.algorithms import gradient_descent, predict, predict_proba
 from titanicprediction.data.preprocessing import DataPreprocessor
-from titanicprediction.core.algorithms import gradient_descent
-from titanicprediction.core.algorithms import predict_proba, predict
+from titanicprediction.entities.core import Dataset, Passenger, TrainedModel
 
 
 @dataclass(frozen=True)
@@ -83,9 +83,11 @@ class IModelTrainingService(Protocol):
     def train_model(
         self, dataset: Dataset, config: TrainingConfig
     ) -> TrainingResult: ...
+
     def evaluate_model(
         self, model: TrainedModel, test_data: Dataset
     ) -> EvaluationResult: ...
+
     def cross_validate(
         self, dataset: Dataset, config: TrainingConfig, folds: int
     ) -> CrossValidationResult: ...
@@ -93,7 +95,9 @@ class IModelTrainingService(Protocol):
 
 class IPredictionService(Protocol):
     def predict_survival(self, passenger: Passenger) -> PredictionResult: ...
+
     def batch_predict(self, passengers: List[Passenger]) -> List[PredictionResult]: ...
+
     def get_prediction_confidence(
         self, prediction: PredictionResult
     ) -> ConfidenceInterval: ...
@@ -110,22 +114,17 @@ class ModelTrainingService:
         numeric_features = processed_data.features.select_dtypes(include=[np.number])
         X_train = numeric_features.values.astype(np.float64)
 
-        # Сохраняем исходные имена числовых признаков
         original_numeric_feature_names = numeric_features.columns.tolist()
 
-        # ДОБАВИТЬ ПОЛИНОМИАЛЬНЫЕ ФИЧИ
         from sklearn.preprocessing import PolynomialFeatures
 
         poly = PolynomialFeatures(degree=2, include_bias=False, interaction_only=True)
         X_train_poly = poly.fit_transform(X_train)
 
-        # Сохраняем полиномиальный трансформер для предсказаний
         self.poly_transformer = poly
 
-        # Генерируем имена для полиномиальных признаков
         poly_feature_names = poly.get_feature_names_out(original_numeric_feature_names)
 
-        # Нормализация
         self.X_mean = np.mean(X_train_poly, axis=0)
         self.X_std = np.std(X_train_poly, axis=0)
         self.X_std[self.X_std == 0] = 1
@@ -146,7 +145,7 @@ class ModelTrainingService:
         model = TrainedModel(
             weights=result.weights,
             bias=result.bias,
-            feature_names=poly_feature_names.tolist(),  # Используем полиномиальные имена
+            feature_names=poly_feature_names.tolist(),
             training_metrics={},
             validation_metrics={},
             training_history=result.loss_history,
@@ -166,23 +165,18 @@ class ModelTrainingService:
     def evaluate_model(
         self, model: TrainedModel, test_data: Dataset
     ) -> EvaluationResult:
-        # Применяем предобработку к тестовым данным
         processed_test = self.preprocessor.transform(test_data)
 
-        # Получаем числовые признаки
         numeric_test_features = processed_test.features.select_dtypes(
             include=[np.number]
         )
         X_test_original = numeric_test_features.values.astype(np.float64)
 
-        # Применяем ТО ЖЕ полиномиальное преобразование, что и при обучении
         if hasattr(self, "poly_transformer"):
             X_test_poly = self.poly_transformer.transform(X_test_original)
         else:
-            # Если полиномиальное преобразование не применялось при обучении, используем исходные признаки
             X_test_poly = X_test_original
 
-        # Применяем нормализацию с ТЕМИ ЖЕ параметрами, что и при обучении
         if hasattr(self, "X_mean") and hasattr(self, "X_std"):
             X_test = (X_test_poly - self.X_mean) / self.X_std
         else:
@@ -190,16 +184,10 @@ class ModelTrainingService:
 
         y_true = processed_test.target.values.astype(np.float64)
 
-        # КРИТИЧЕСКАЯ ПРОВЕРКА: убеждаемся, что размеры совпадают
         if X_test.shape[1] != len(model.feature_names):
-            # Если все еще не совпадает, используем альтернативный подход
-            # Создаем выровненный массив с нулями для отсутствующих признаков
             aligned_X_test = np.zeros((X_test.shape[0], len(model.feature_names)))
 
-            # Заполняем доступные признаки
             for i, feature_name in enumerate(model.feature_names):
-                # Ищем соответствующий индекс в тестовых данных
-                # Это упрощенный подход - в реальности нужна более сложная логика сопоставления
                 if i < X_test.shape[1]:
                     aligned_X_test[:, i] = X_test[:, i]
 
@@ -234,18 +222,14 @@ class ModelTrainingService:
     def _align_features_with_model(
         self, features: pd.DataFrame, model: TrainedModel
     ) -> pd.DataFrame:
-        """Выравнивает фичи с моделью, гарантируя одинаковый порядок и количество"""
         aligned_features = pd.DataFrame()
 
-        # СОЗДАЕМ ПУСТОЙ DATAFRAME С ФИЧАМИ МОДЕЛИ
         for feature in model.feature_names:
             if feature in features.columns:
                 aligned_features[feature] = features[feature]
             else:
-                # Если фича отсутствует, заполняем нулями
                 aligned_features[feature] = 0.0
 
-        # УБЕЖДАЕМСЯ, ЧТО ПОРЯДОК ФИЧ СОВПАДАЕТ С МОДЕЛЬЮ
         aligned_features = aligned_features[model.feature_names]
 
         return aligned_features
@@ -319,7 +303,6 @@ class PredictionService:
         try:
             passenger_df = self._passenger_to_dataframe(passenger)
 
-            # Применяем весь пайплайн предобработки
             dummy_dataset = Dataset(
                 features=passenger_df,
                 target=None,
@@ -329,29 +312,24 @@ class PredictionService:
 
             processed_data = self.preprocessor.transform(dummy_dataset)
 
-            # Получаем числовые признаки
             numeric_features = processed_data.features.select_dtypes(
                 include=[np.number]
             )
             X_pred_original = numeric_features.values.astype(np.float64)
 
-            # Применяем полиномиальное преобразование если оно было использовано при обучении
             if hasattr(self, "poly_transformer"):
                 X_pred_poly = self.poly_transformer.transform(X_pred_original)
             else:
                 X_pred_poly = X_pred_original
 
-            # Проверка на NaN
             if np.any(np.isnan(X_pred_poly)):
                 raise ValueError("NaN values in features after preprocessing")
 
-            # Нормализуем если параметры нормализации доступны
             if hasattr(self, "X_mean") and hasattr(self, "X_std"):
                 X_pred = (X_pred_poly - self.X_mean) / self.X_std
             else:
                 X_pred = X_pred_poly
 
-            # Проверяем соответствие размеров с моделью
             if X_pred.shape[1] != len(self.model.feature_names):
                 raise ValueError(
                     f"Feature dimension mismatch for prediction: "
@@ -361,7 +339,6 @@ class PredictionService:
 
             probability = predict_proba(X_pred, self.model.weights, self.model.bias)[0]
 
-            # Проверка на валидность вероятности
             if np.isnan(probability) or not np.isfinite(probability):
                 probability = 0.5
 
@@ -389,7 +366,6 @@ class PredictionService:
     def _align_features_with_model(
         self, features: pd.DataFrame, model: TrainedModel
     ) -> pd.DataFrame:
-        """Выравнивает фичи с моделью, гарантируя одинаковый порядок и количество"""
         aligned_features = pd.DataFrame()
 
         for feature in model.feature_names:

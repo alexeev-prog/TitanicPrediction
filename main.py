@@ -1,22 +1,23 @@
+import argparse
+import json
+from loguru import logger
 import os
 import sys
-import logging
-import argparse
-from pathlib import Path
-from typing import Dict, Any, Optional, List
 from dataclasses import dataclass, field
 from enum import Enum
-import yaml
-import json
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
-from titanicprediction.data.repositories import CSVDataRepository, FileModelRepository
-from titanicprediction.data.preprocessing import PreprocessorFactory, DataPreprocessor
+import yaml
+
 from titanicprediction.core.services import (
-    ServiceFactory,
     ModelTrainingService,
     PredictionService,
+    ServiceFactory,
 )
 from titanicprediction.data.analysis import EDAVisualizer
+from titanicprediction.data.preprocessing import DataPreprocessor, PreprocessorFactory
+from titanicprediction.data.repositories import CSVDataRepository, FileModelRepository
 from titanicprediction.interface.web import TitanicApp
 
 
@@ -143,12 +144,12 @@ class ConfigurationManager:
                 elif config_path.suffix == ".json":
                     return json.load(f)
                 else:
-                    logging.warning(
+                    logger.warning(
                         f"Unsupported config file format: {config_path.suffix}"
                     )
                     return {}
         except Exception as e:
-            logging.error(f"Error loading config from {config_path}: {e}")
+            logger.error(f"Error loading config from {config_path}: {e}")
             return {}
 
     def _load_config_from_env(self) -> Dict[str, Any]:
@@ -210,7 +211,7 @@ class ConfigurationManager:
         config = self._config
 
         if not Path(config.ml_pipeline.data_path).exists():
-            logging.warning(f"Data path does not exist: {config.ml_pipeline.data_path}")
+            logger.warning(f"Data path does not exist: {config.ml_pipeline.data_path}")
 
         if config.streamlit.port < 1024 or config.streamlit.port > 65535:
             raise ValueError(f"Invalid port number: {config.streamlit.port}")
@@ -229,7 +230,7 @@ class ApplicationInitializer:
         self.dependency_container: Optional[DependencyContainer] = None
 
     def setup_dependencies(self) -> DependencyContainer:
-        logging.info("Setting up application dependencies...")
+        logger.info("Setting up application dependencies...")
 
         data_repository = CSVDataRepository(
             file_path=self.config.ml_pipeline.data_path, target_column="Survived"
@@ -255,7 +256,7 @@ class ApplicationInitializer:
 
         self._register_services()
 
-        logging.info("Dependencies setup completed successfully")
+        logger.info("Dependencies setup completed successfully")
         return self.dependency_container
 
     def _register_services(self) -> None:
@@ -281,12 +282,12 @@ class ApplicationInitializer:
         self.service_registry.mark_initialized()
 
     def initialize_services(self) -> None:
-        logging.info("Initializing services...")
+        logger.info("Initializing services...")
 
         self._create_directories()
         self._warmup_services()
 
-        logging.info("Services initialization completed")
+        logger.info("Services initialization completed")
 
     def _create_directories(self) -> None:
         directories = [
@@ -299,20 +300,20 @@ class ApplicationInitializer:
 
         for directory in directories:
             directory.mkdir(parents=True, exist_ok=True)
-            logging.debug(f"Created directory: {directory}")
+            logger.debug(f"Created directory: {directory}")
 
     def _warmup_services(self) -> None:
         try:
             data_repo = self.service_registry.get_service("data_repository")
             dataset = data_repo.load_data()
-            logging.info(f"Data warmup: loaded {len(dataset.features)} rows")
+            logger.info(f"Data warmup: loaded {len(dataset.features)} rows")
 
             visualizer = self.service_registry.get_service("visualizer")
             visualizer.create_survival_analysis_plots(dataset)
-            logging.info("Visualization warmup: created survival analysis plots")
+            logger.info("Visualization warmup: created survival analysis plots")
 
         except Exception as e:
-            logging.warning(f"Service warmup failed: {e}")
+            logger.warning(f"Service warmup failed: {e}")
 
     def get_service_registry(self) -> ServiceRegistry:
         return self.service_registry
@@ -329,22 +330,22 @@ class ApplicationRunner:
         self.service_registry = service_registry
 
     def run(self) -> None:
-        logging.info("Starting Titanic ML Application...")
+        logger.info("Starting Titanic ML Application...")
 
         self._setup_streamlit_config()
 
         app = TitanicApp()
 
-        logging.info(
+        logger.info(
             f"Application started on http://{self.config.streamlit.host}:{self.config.streamlit.port}"
         )
 
         try:
             app.run()
         except KeyboardInterrupt:
-            logging.info("Application stopped by user")
+            logger.info("Application stopped by user")
         except Exception as e:
-            logging.error(f"Application error: {e}")
+            logger.error(f"Application error: {e}")
             raise
         finally:
             self._cleanup()
@@ -360,20 +361,20 @@ class ApplicationRunner:
         )
 
     def _cleanup(self) -> None:
-        logging.info("Cleaning up application resources...")
+        logger.info("Cleaning up application resources...")
 
 
-def setup_logging(config: AppConfig) -> None:
+def setup_logger(config: AppConfig) -> None:
     log_format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
-    handlers = [logging.StreamHandler(sys.stdout)]
+    handlers = [logger.StreamHandler(sys.stdout)]
 
     if config.log_file:
         log_path = Path(config.log_file)
         log_path.parent.mkdir(parents=True, exist_ok=True)
-        handlers.append(logging.FileHandler(log_path))
+        handlers.append(logger.FileHandler(log_path))
 
-    logging.basicConfig(
+    logger.basicConfig(
         level=config.log_level.value, format=log_format, handlers=handlers
     )
 
@@ -403,6 +404,13 @@ def parse_arguments() -> argparse.Namespace:
 
     parser.add_argument("--host", type=str, help="Streamlit host", default=None)
 
+    parser.add_argument(
+        "--cli",
+        action="store_true",
+        help="Run in CLI mode without web interface",
+        default=False,
+    )
+
     return parser.parse_args()
 
 
@@ -427,25 +435,80 @@ def main() -> None:
 
     config_manager = ConfigurationManager()
     config = config_manager.load_configuration(args.config)
-
     config = apply_cli_args_to_config(args, config)
 
-    setup_logging(config)
+    logger.info(f"Starting Titanic ML Application in {config.environment.value} mode")
+    logger.info(f"Data path: {config.ml_pipeline.data_path}")
 
-    logging.info(f"Starting Titanic ML Application in {config.environment.value} mode")
+    logger.info(f"Starting Titanic ML Application in {config.environment.value} mode")
 
+    app_config = {
+        "environment": config.environment.value,
+        "ml_pipeline": {
+            "data_path": config.ml_pipeline.data_path,
+            "models_dir": config.ml_pipeline.models_dir,
+            "plots_dir": config.ml_pipeline.plots_dir,
+        },
+        "streamlit": {
+            "port": config.streamlit.port,
+            "host": config.streamlit.host,
+        },
+    }
+
+    print(app_config)
+
+    if check_dataset_exists(config.ml_pipeline.data_path):
+        logger.info("✅ Dataset exists and is accessible")
+    else:
+        logger.warning("⚠️ Dataset not found or inaccessible")
+
+    if args.cli:
+        return run_cli_mode(config)
+    else:
+        return run_streamlit_mode(config, app_config)
+
+
+def run_streamlit_mode(config: AppConfig, app_config: dict) -> None:
+    """Запуск в режиме Streamlit"""
     try:
         initializer = ApplicationInitializer(config)
         initializer.setup_dependencies()
         initializer.initialize_services()
 
-        service_registry = initializer.get_service_registry()
-
-        runner = ApplicationRunner(config, service_registry)
-        runner.run()
+        app = TitanicApp(app_config=app_config)
+        app.run()
 
     except Exception as e:
-        logging.error(f"Failed to start application: {e}")
+        logger.error(f"Failed to start Streamlit application: {e}")
+        sys.exit(1)
+
+
+def check_dataset_exists(data_path: str) -> bool:
+    path = Path(data_path)
+    if path.exists():
+        try:
+            import pandas as pd
+
+            df = pd.read_csv(path, nrows=5)
+            return len(df) > 0
+        except Exception:
+            return False
+    return False
+
+
+def run_cli_mode(config: AppConfig) -> None:
+    """Запуск в CLI режиме для отладки и тестирования"""
+    try:
+        initializer = ApplicationInitializer(config)
+        initializer.setup_dependencies()
+        initializer.initialize_services()
+
+        logger.info("CLI mode initialized successfully")
+        logger.info(f"Data path: {config.ml_pipeline.data_path}")
+        logger.info("Use 'streamlit run main.py' to start the web interface")
+
+    except Exception as e:
+        logger.error(f"Failed to initialize in CLI mode: {e}")
         sys.exit(1)
 
 

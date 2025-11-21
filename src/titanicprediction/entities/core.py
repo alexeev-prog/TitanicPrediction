@@ -1,9 +1,9 @@
-from enum import Enum
 from dataclasses import dataclass
-from typing import Union, Literal, Optional, List, Tuple, Dict, Any
-import pandas as pd
-import numpy as np
+from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Tuple, Union
 
+import numpy as np
+import pandas as pd
 
 AgeType = Union[float, None]
 SurvivalType = Union[bool, None]
@@ -132,9 +132,9 @@ class Dataset:
         return {
             "shape": self.get_shape(),
             "feature_types": self.get_feature_types(),
-            "target_distribution": self.target.value_counts().to_dict()
-            if self.target is not None
-            else {},
+            "target_distribution": (
+                self.target.value_counts().to_dict() if self.target is not None else {}
+            ),
             "missing_values": self.features.isnull().sum().to_dict(),
         }
 
@@ -150,7 +150,6 @@ class TrainedModel:
     model_config: Dict[str, Any]
 
     def predict(self, features: np.ndarray) -> np.ndarray:
-        """С УЛУЧШЕННОЙ ВАЛИДАЦИЕЙ"""
         if features.shape[1] != len(self.feature_names):
             raise ValueError(
                 f"Feature dimension mismatch: model expects {len(self.feature_names)} features, "
@@ -164,7 +163,6 @@ class TrainedModel:
         return predictions
 
     def predict_proba(self, features: np.ndarray) -> np.ndarray:
-        """Predict probability of positive class for given features"""
         if features.shape[1] != len(self.feature_names):
             raise ValueError(
                 f"Expected {len(self.feature_names)} features, got {features.shape[1]}"
@@ -177,7 +175,6 @@ class TrainedModel:
         return np.column_stack([1 - probabilities, probabilities])
 
     def get_feature_importance(self) -> Dict[str, float]:
-        """Get feature importance based on absolute weights"""
         if len(self.weights) != len(self.feature_names):
             raise ValueError("Weights and feature_names length mismatch")
 

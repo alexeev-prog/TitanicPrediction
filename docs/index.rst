@@ -1,5 +1,5 @@
 .. titanicprediction documentation master file, created by
-   sphinx-quickstart on Thu Nov 20 22:19:49 2025.
+   sphinx-quickstart on Fri Nov 21 09:57:00 2025.
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
