@@ -1,3 +1,27 @@
+commit 435f7fc015cdc64c3f649b2e5224711046068625
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Sun Nov 23 16:22:11 2025 +0700
+
+    update codestyle and translate web interface to ru
+
+commit 380bdd8ac529625ca03512b53b6c0bda0ab6192a
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Fri Nov 21 18:38:51 2025 +0700
+
+    add ModelExplanationPage, fix bugs, improve model learning
+
+commit 732e46589eb7c6933f884d420891f8d4b2db5e6f
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Fri Nov 21 10:23:45 2025 +0700
+
+    fix bugs with predictions and update
+
+commit 98616d00e5c146c813d48a43f8694b91f05ce540
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Fri Nov 21 09:57:14 2025 +0700
+
+    update codestyle, fix bugs and improve configuration
+
 commit 540dce30e79eb3e8b3703deb3e3e2705f3e181c9
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Fri Nov 21 00:57:22 2025 +0700
