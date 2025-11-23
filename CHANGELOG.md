@@ -1,3 +1,21 @@
+commit 4b1291875869c0e74b2c3cb0cb3eaa5dab64ef56
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Sun Nov 23 22:06:04 2025 +0700
+
+    update docs
+
+commit 83d6b5b40aa9bfdbf2711199163f12e5ada974a3
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Sun Nov 23 22:04:22 2025 +0700
+
+    update docs
+
+commit a5450c985a3e4212d6f74c571521cf90e385d0b2
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Sun Nov 23 17:34:29 2025 +0700
+
+    update web streamlit interface
+
 commit 435f7fc015cdc64c3f649b2e5224711046068625
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Sun Nov 23 16:22:11 2025 +0700
