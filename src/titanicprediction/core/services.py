@@ -14,17 +14,17 @@ from sklearn.metrics import (
     recall_score,
 )
 from sklearn.model_selection import KFold
+from sklearn.preprocessing import PolynomialFeatures
 
 from titanicprediction.core.algorithms import gradient_descent, predict, predict_proba
 from titanicprediction.data.preprocessing import DataPreprocessor
 from titanicprediction.entities.core import (
     Dataset,
-    Passenger,
-    TrainedModel,
     FeatureImpactAnalysis,
+    Passenger,
     PredictionExplanation,
+    TrainedModel,
 )
-from sklearn.preprocessing import PolynomialFeatures
 
 
 @dataclass(frozen=True)

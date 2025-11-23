@@ -1,6 +1,5 @@
 import argparse
 import json
-from loguru import logger
 import os
 import sys
 from dataclasses import dataclass, field
@@ -9,6 +8,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
+from loguru import logger
 
 from titanicprediction.core.services import (
     ModelTrainingService,

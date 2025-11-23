@@ -30,17 +30,17 @@ class AppState(TypedDict):
 
 class DataTableComponent:
     def render(
-        self, data: pd.DataFrame, title: str = "Data Table", page_size: int = 10
+        self, data: pd.DataFrame, title: str = "Таблица данных", page_size: int = 10
     ) -> None:
         st.subheader(title)
 
         col1, col2 = st.columns([2, 1])
 
         with col1:
-            search_term = st.text_input("Search data...", key=f"search_{title}")
+            search_term = st.text_input("Поиск...", key=f"search_{title}")
 
         with col2:
-            sort_column = st.selectbox("Sort by", data.columns, key=f"sort_{title}")
+            sort_column = st.selectbox("Сортировка", data.columns, key=f"sort_{title}")
 
         if search_term:
             filtered_data = data[
@@ -58,20 +58,20 @@ class DataTableComponent:
 
         total_pages = max(1, len(filtered_data) // page_size)
         current_page = st.number_input(
-            "Page", min_value=1, max_value=total_pages, value=1, key=f"page_{title}"
+            "Страница", min_value=1, max_value=total_pages, value=1, key=f"page_{title}"
         )
 
         start_idx = (current_page - 1) * page_size
         end_idx = start_idx + page_size
 
         st.write(
-            f"Showing rows {start_idx + 1} to {min(end_idx, len(filtered_data))} of {len(filtered_data)}"
+            f"Показаны строки с {start_idx + 1} до {min(end_idx, len(filtered_data))} из {len(filtered_data)}"
         )
 
-        if st.button("Export to CSV", key=f"export_{title}"):
+        if st.button("Экспорт в CSV", key=f"export_{title}"):
             csv = filtered_data.to_csv(index=False)
             st.download_button(
-                label="Download CSV",
+                label="Скачать CSV",
                 data=csv,
                 file_name="titanic_data.csv",
                 mime="text/csv",
@@ -79,25 +79,25 @@ class DataTableComponent:
 
 
 class PlotComponent:
-    def render(self, plot_path: Path, title: str = "Plot") -> None:
+    def render(self, plot_path: Path, title: str = "График") -> None:
         st.subheader(title)
 
         try:
             st.image(str(plot_path), width="stretch")
         except Exception as e:
-            st.error(f"Error loading plot: {e}")
+            st.error(f"Ошибка загрузки графика: {e}")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            if st.button("Refresh", key=f"refresh_{title}"):
+            if st.button("Обновить", key=f"refresh_{title}"):
                 st.rerun()
 
         with col2:
-            if st.button("Download", key=f"download_{title}"):
+            if st.button("Скачать", key=f"download_{title}"):
                 with open(plot_path, "rb") as file:
                     st.download_button(
-                        label="Download Image",
+                        label="Скачать изображение",
                         data=file,
                         file_name=plot_path.name,
                         mime="image/png",
@@ -106,34 +106,37 @@ class PlotComponent:
 
 class ModelMetricsComponent:
     def render(self, metrics: Dict[str, float], confusion_matrix: np.ndarray) -> None:
-        st.subheader("Model Performance Metrics")
+        st.subheader("Метрики производительности модели")
 
         col1, col2, col3, col4 = st.columns(4)
 
         with col1:
-            st.metric("Accuracy", f"{metrics.get('accuracy', 0):.3f}")
+            st.metric("Accuracy / Точность", f"{metrics.get('accuracy', 0):.3f}")
 
         with col2:
-            st.metric("Precision", f"{metrics.get('precision', 0):.3f}")
+            st.metric(
+                "Precision / Точность верно положительных",
+                f"{metrics.get('precision', 0):.3f}",
+            )
 
         with col3:
-            st.metric("Recall", f"{metrics.get('recall', 0):.3f}")
+            st.metric("Recall / Полнота", f"{metrics.get('recall', 0):.3f}")
 
         with col4:
-            st.metric("F1-Score", f"{metrics.get('f1_score', 0):.3f}")
+            st.metric("F1-Score / F1-мера", f"{metrics.get('f1_score', 0):.3f}")
 
-        st.subheader("Confusion Matrix")
+        st.subheader("Матрица неточностей")
         self._render_confusion_matrix(confusion_matrix)
 
-        st.subheader("Detailed Metrics")
+        st.subheader("Подробные показатели")
         self._render_detailed_metrics(metrics)
 
     def _render_confusion_matrix(self, cm: np.ndarray) -> None:
         fig = px.imshow(
             cm,
-            labels=dict(x="Predicted", y="Actual", color="Count"),
-            x=["Not Survived", "Survived"],
-            y=["Not Survived", "Survived"],
+            labels=dict(x="Предсказано", y="Актуально", color="Число"),
+            x=["Не выжило", "Выжило"],
+            y=["Не выжило", "Выжило"],
             color_continuous_scale="Blues",
             aspect="auto",
         )
@@ -152,8 +155,8 @@ class ModelMetricsComponent:
 
     def _render_detailed_metrics(self, metrics: Dict[str, float]) -> None:
         detailed_metrics = {
-            "Metric": ["Accuracy", "Precision", "Recall", "F1-Score", "Support"],
-            "Value": [
+            "Метрики": ["Accuracy", "Precision", "Recall", "F1-Score", "Support"],
+            "Значение": [
                 metrics.get("accuracy", 0),
                 metrics.get("precision", 0),
                 metrics.get("recall", 0),
@@ -167,41 +170,41 @@ class ModelMetricsComponent:
 
 class PredictionFormComponent:
     def render(self) -> Passenger:
-        st.subheader("Passenger Information")
+        st.subheader("Информация о пассажирах")
 
         with st.form("prediction_form"):
             col1, col2 = st.columns(2)
 
             with col1:
-                pclass = st.selectbox("Passenger Class", [1, 2, 3], index=0)
-                sex = st.selectbox("Gender", ["male", "female"], index=0)
-                age = st.slider("Age", 0.0, 100.0, 30.0, 0.5)
+                pclass = st.selectbox("Класс пассажира", [1, 2, 3], index=0)
+                sex = st.selectbox("Пол", ["male", "female"], index=0)
+                age = st.slider("Возраст", 0.0, 100.0, 30.0, 0.5)
 
             with col2:
                 sibsp = st.number_input(
-                    "Siblings/Spouses", min_value=0, max_value=10, value=0
+                    "Братья и сестры/Супруги", min_value=0, max_value=10, value=0
                 )
                 parch = st.number_input(
-                    "Parents/Children", min_value=0, max_value=10, value=0
+                    "Родители/Дети", min_value=0, max_value=10, value=0
                 )
                 fare = st.number_input(
-                    "Fare", min_value=0.0, max_value=600.0, value=50.0, step=1.0
+                    "Плата", min_value=0.0, max_value=600.0, value=50.0, step=1.0
                 )
 
-            embarked = st.selectbox("Embarkation Port", ["C", "Q", "S"], index=2)
+            embarked = st.selectbox("Порт посадки", ["C", "Q", "S"], index=2)
 
-            submitted = st.form_submit_button("Predict Survival")
+            submitted = st.form_submit_button("Предсказать шанс выживания")
 
             if submitted:
                 return Passenger(
                     passenger_id=0,
                     pclass=pclass,
-                    name="User Passenger",
+                    name="Пользователь",
                     sex=sex,
                     age=age,
                     sibsp=sibsp,
                     parch=parch,
-                    ticket="Ticket",
+                    ticket="Билет",
                     fare=fare,
                     cabin=None,
                     embarked=embarked,
@@ -214,53 +217,66 @@ class PredictionFormComponent:
 
 class HomePage:
     def render(self, state) -> None:
-        st.title("🚢 Titanic Survival Predictor")
+        st.title("🚢 Модель данных выживания на титанике")
         st.markdown("---")
 
-        st.header("Welcome to the Titanic Machine Learning Project")
+        st.header("Проект по анализу данных и машинному обучению")
 
         col1, col2 = st.columns([2, 1])
 
         with col1:
             st.markdown(
                 """
-            ### Project Overview
-            This application demonstrates a complete Machine Learning pipeline for predicting
-            passenger survival on the Titanic using logistic regression with gradient descent.
-
-            ### Key Features:
-            - **Exploratory Data Analysis**: Interactive visualization of Titanic dataset
-            - **Model Training**: Custom implementation of logistic regression
-            - **Real-time Predictions**: Interactive survival probability calculator
-            - **Model Evaluation**: Comprehensive performance metrics and analysis
+### О проекте
+В современном мире с динамическим развитием AI-сферы мало людей, знакомых с технической базой по ИИ-продуктам. А также общество разделилось на две крайности, первые гласят что ИИ заменит всех нас, программисты уйдут на завод, а вторая половина говорит что ИИ это всемирный пузырь и бизнес. И те, и те правы, и не правы одновременно.
+В искуственном интеллекте есть несколько компонентов. Самая банальная — нейронная сеть (самая простейшая называется персептрон, к примеру), о том как их создавать есть множество проектов и документации. Но в сфере школьных проектов мало кто говорить о другой важнейшей части — Machine Learning, машинном обучении.
+Именно этой части и посвящен мой проект. Я планирую создать простейшую модель, которая на основе существующего набора данных по смертности на «Титанике» предсказать шанс выживания пользователя с персонализацией по классу билета, цены билета, полу, и возрасту. Это затронет как и знания из области науки о данных (Data Science) так и знания математического анализа (в виде производной и градиентского спуска).
+При выполнении проекта я буду следовать следующему плану:
+1. Загрузка и изучение данных.
+2. Проведение разведочного анализа для нахождения закономерностей и аномалий.
+3. Подготовка данных — обработка пропусков, кодирование категорий.
+4. Реализование модели — через логистическую регрессию с градиентным спуском.
+5. Обучение и оценка точности модели.
+Из этого можно сформировать следующие характеристики проекта:
+Цель: Изучить ML и построить свою модель.
+Проблема: В современном мире с динамическим развитием AI-сферы мало людей, знакомых с технической базой по ИИ-продуктам.
+Актуальность: Активно развивается искуственный интеллект, а также профессия ML-инженера — одна из самых перспективных среди направлений в программировании и аналитике данных.
+Сфомируем задачи:
+1. Изучить машинное обучение;
+2. Изучить основы Data Science и аналитики;
+3. Изучить призводную, градиентский спуск и линейную регрессию;
+4. Изучить методы классификации модели;
+5. Провести разведочный анализ данных;
+6. Обучить модель и оценить ее;
+7. Реализовать клиентский интерфейс для взаимодействия с моделью.
             """
             )
 
         with col2:
             st.image(
                 "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fd/RMS_Titanic_3.jpg/800px-RMS_Titanic_3.jpg",
-                caption="RMS Titanic",
+                caption="Титаник",
                 width="stretch",
             )
 
         st.markdown("---")
 
-        st.header("Technical Stack")
+        st.header("Технический стек")
 
         tech_cols = st.columns(4)
 
         with tech_cols[0]:
-            st.subheader("🛠️ Core ML")
+            st.subheader("🛠️ Машинное обучение")
             st.markdown(
                 """
-            - Custom Logistic Regression
-            - Gradient Descent
+            - Кастомная логистическая регрессия
+            - Градиентный спуск
             - NumPy/Pandas
             """
             )
 
         with tech_cols[1]:
-            st.subheader("📊 Visualization")
+            st.subheader("📊 Визуализация")
             st.markdown(
                 """
             - Matplotlib/Seaborn
@@ -270,56 +286,59 @@ class HomePage:
             )
 
         with tech_cols[2]:
-            st.subheader("🏗️ Architecture")
+            st.subheader("🏗️ Архитектура")
             st.markdown(
                 """
-            - Clean Architecture
-            - SOLID Principles
-            - Repository Pattern
+            - Чистая архитектура
+            - SOLID
+            - Паттерны ООП
+            - ACID
+            - DRY, KISS
             """
             )
 
         with tech_cols[3]:
-            st.subheader("📈 Analysis")
+            st.subheader("📈 Аналитика")
             st.markdown(
                 """
-            - EDA Visualizations
-            - Model Metrics
-            - Statistical Analysis
+            - Визуализация EDA
+            - Метрики модели
+            - Статистический анализ
+            - Анализ решений модели
             """
             )
 
         st.markdown("---")
 
-        st.header("Getting Started")
+        st.header("Как начать")
 
         steps = st.columns(3)
 
         with steps[0]:
-            st.subheader("1. Data Analysis")
+            st.subheader("1. Анализ данных")
             st.markdown(
-                "Explore the Titanic dataset with interactive visualizations and statistical summaries."
+                "Изучение датасета Титаника с интерактивными графиками и статистическими выводами."
             )
 
         with steps[1]:
-            st.subheader("2. Model Training")
+            st.subheader("2. Обучение модели")
             st.markdown(
-                "Train a logistic regression model with custom hyperparameters and monitor the training process."
+                "Тренировка и обучение модели по логистической регрессии, а также объяснение и мониторинг модели."
             )
 
         with steps[2]:
-            st.subheader("3. Predictions")
+            st.subheader("3. Предсказание")
             st.markdown(
-                "Use the trained model to predict survival probability for new passengers."
+                "Использование обученной модели длля предсказания шанса выживания для пассажира."
             )
 
 
 class ModelExplanationPage:
     def render(self, state: AppState) -> None:
-        st.title("🔍 Model Explanation & Analysis")
+        st.title("🔍 Объяснение модели и анализ")
 
         if state.get("trained_model") is None:
-            st.warning("Please train a model first from the Model Training page.")
+            st.warning("Пожалуйста обучите модель перед анализом.")
             return
 
         model = state["trained_model"]
@@ -327,10 +346,10 @@ class ModelExplanationPage:
 
         tab1, tab2, tab3, tab4 = st.tabs(
             [
-                "Feature Importance",
-                "Prediction Analysis",
-                "Model Insights",
-                "Advanced Analytics",
+                "Важность фич",
+                "Анализ предсказания",
+                "Инсайты модели",
+                "Продвинутая аналитика",
             ]
         )
 
@@ -349,7 +368,7 @@ class ModelExplanationPage:
     def _render_feature_importance(
         self, state: AppState, model: TrainedModel, dataset: Dataset
     ):
-        st.subheader("Feature Importance Analysis")
+        st.subheader("Важность фич")
 
         importance_data = model.get_feature_importance()
         sorted_importance = dict(
@@ -363,30 +382,30 @@ class ModelExplanationPage:
                 x=list(sorted_importance.values())[:15],
                 y=list(sorted_importance.keys())[:15],
                 orientation="h",
-                title="Top 15 Most Important Features",
-                labels={"x": "Importance (%)", "y": "Features"},
+                title="Топ 15 наиболее важных фич",
+                labels={"x": "Важность (%)", "y": "Фичи"},
             )
             fig.update_layout(showlegend=False, height=500)
             st.plotly_chart(fig, width="stretch")
 
         with col2:
-            st.subheader("Feature Statistics")
-            st.metric("Total Features", len(sorted_importance))
+            st.subheader("Статистика фич")
+            st.metric("Всего фич", len(sorted_importance))
 
             top_5_importance = sum(list(sorted_importance.values())[:5])
-            st.metric("Top 5 Features Contribution", f"{top_5_importance:.1f}%")
+            st.metric("Топ 5 фич по вкладу", f"{top_5_importance:.1f}%")
 
-            st.write("**Top 5 Features:**")
+            st.write("**Топ 5 фич:**")
             for i, (feature, importance) in enumerate(
                 list(sorted_importance.items())[:5]
             ):
                 st.write(f"{i + 1}. {feature}: {importance:.2f}%")
 
     def _render_prediction_analysis(self, state: AppState):
-        st.subheader("Individual Prediction Analysis")
+        st.subheader("Индивидуальная аналитика предсказания")
 
         if not state.get("current_predictions"):
-            st.info("Make some predictions first to see detailed analysis.")
+            st.info("Сделайте какие нибудь предсказания перед началом.")
             return
 
         latest_pred = state["current_predictions"][-1]
@@ -405,35 +424,35 @@ class ModelExplanationPage:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("Prediction Details")
-            st.metric("Survival Probability", f"{explanation.probability:.1%}")
+            st.subheader("Детали предсказания")
+            st.metric("Шанс выживания", f"{explanation.probability:.1%}")
             st.metric(
-                "Final Prediction",
-                "Survived" if explanation.prediction else "Did Not Survive",
+                "Финальное решение",
+                "Выжил" if explanation.prediction else "Не выжил",
             )
-            st.metric("Confidence Level", explanation.confidence_level)
+            st.metric("Уровень уверенности", explanation.confidence_level)
 
             passenger = latest_pred.passenger
-            st.write("**Passenger Features:**")
+            st.write("**Фичи пассажира:**")
             feature_data = {
-                "Class": passenger.pclass,
-                "Gender": passenger.sex,
-                "Age": passenger.age,
-                "Siblings/Spouses": passenger.sibsp,
-                "Parents/Children": passenger.parch,
-                "Fare": f"${passenger.fare:.2f}",
-                "Embarked": passenger.embarked,
+                "Класс": passenger.pclass,
+                "Пол": passenger.sex,
+                "Возраст": passenger.age,
+                "Братья и сестры": passenger.sibsp,
+                "Родители/дети": passenger.parch,
+                "Сумма": f"${passenger.fare:.2f}",
+                "Погруженный порт": passenger.embarked,
             }
 
             for key, value in feature_data.items():
                 st.write(f"- **{key}:** {value}")
 
         with col2:
-            st.subheader("Decision Factors")
+            st.subheader("Факторы, влияющие на принятие решения")
             for factor in explanation.decision_factors:
                 st.write(f"• {factor}")
 
-            st.subheader("Top Feature Impacts")
+            st.subheader("Топ факторов, влияющих на принятие решение")
             impact_df = pd.DataFrame(
                 [
                     {
@@ -450,7 +469,7 @@ class ModelExplanationPage:
                 x="impact",
                 y="feature",
                 orientation="h",
-                title="Top 10 Features Influencing This Prediction",
+                title="Топ 10 фич влияющие на это решение",
                 color=impact_df["impact"] > 0,
                 color_discrete_map={True: "green", False: "red"},
             )
@@ -460,7 +479,7 @@ class ModelExplanationPage:
     def _render_model_insights(
         self, state: AppState, model: TrainedModel, dataset: Dataset
     ):
-        st.subheader("Model Performance Insights")
+        st.subheader("Инсайты модели")
 
         if state.get("training_result"):
             training_result = state["training_result"]
@@ -468,31 +487,31 @@ class ModelExplanationPage:
             col1, col2 = st.columns(2)
 
             with col1:
-                st.write("**Training Statistics:**")
-                st.write(f"- Final Loss: {training_result.final_loss:.6f}")
-                st.write(f"- Training Time: {training_result.training_time:.2f}s")
-                st.write(f"- Learning Rate: {training_result.config.learning_rate}")
-                st.write(f"- Epochs: {training_result.config.epochs}")
+                st.write("**Статистика обучения:**")
+                st.write(f"- Финальные потери: {training_result.final_loss:.6f}")
+                st.write(f"- Время обучения: {training_result.training_time:.2f}s")
+                st.write(f"- Оценка обучения: {training_result.config.learning_rate}")
+                st.write(f"- Эпохи: {training_result.config.epochs}")
 
             with col2:
-                st.write("**Model Configuration:**")
-                st.write(f"- Regularization: {training_result.config.lambda_reg}")
+                st.write("**Настройки модели:**")
+                st.write(f"- Регуляризация: {training_result.config.lambda_reg}")
                 st.write(f"- Convergence Tol: {training_result.config.convergence_tol}")
-                st.write("- Optimizer: Adam")
+                st.write("- Оптимизатор: Adam")
 
-        st.subheader("Decision Boundary Analysis")
+        st.subheader("Анализ границ решений")
 
         feature1 = st.selectbox(
-            "First Feature", options=dataset.feature_names[:10], index=0, key="feature1"
+            "Первая фича", options=dataset.feature_names[:10], index=0, key="feature1"
         )
         feature2 = st.selectbox(
-            "Second Feature",
+            "Вторая фича",
             options=dataset.feature_names[:10],
             index=1,
             key="feature2",
         )
 
-        if st.button("Generate 2D Analysis"):
+        if st.button("Сгенерировать 2D график"):
             self._generate_2d_analysis(feature1, feature2, model, dataset)
 
     def _generate_2d_analysis(
@@ -514,7 +533,7 @@ class ModelExplanationPage:
     def _render_advanced_analytics(
         self, state: AppState, model: TrainedModel, dataset: Dataset
     ):
-        st.subheader("Advanced Model Analytics")
+        st.subheader("Продвинутая аналитика модели")
 
         preprocessor = state["preprocessing_pipeline"]
         prediction_service = ServiceFactory.create_prediction_service(
@@ -524,28 +543,28 @@ class ModelExplanationPage:
             prediction_service
         )
 
-        if st.button("Run Model Diagnostics"):
-            with st.spinner("Running comprehensive diagnostics..."):
+        if st.button("Запустить диагностику модели"):
+            with st.spinner("Запуск комплексной диагностики..."):
                 model_stats = explanation_service.get_model_statistics(model)
 
                 col1, col2, col3 = st.columns(3)
 
                 with col1:
-                    st.metric("Model Complexity", model_stats["total_features"])
+                    st.metric("Сложность модели", model_stats["total_features"])
                     st.metric(
-                        "Weight Magnitude", f"{model_stats['weight_magnitude']:.4f}"
+                        "Величина весов", f"{model_stats['weight_magnitude']:.4f}"
                     )
 
                 with col2:
-                    st.metric("Positive Weights", model_stats["positive_weights"])
-                    st.metric("Negative Weights", model_stats["negative_weights"])
+                    st.metric("Положительные веса", model_stats["positive_weights"])
+                    st.metric("Отрицательные веса", model_stats["negative_weights"])
 
                 with col3:
                     weight_range = f"{model_stats['weight_range']['min']:.3f} to {model_stats['weight_range']['max']:.3f}"
-                    st.metric("Weight Range", weight_range)
-                    st.metric("Bias Term", f"{model_stats['bias']:.4f}")
+                    st.metric("Диапазон весов", weight_range)
+                    st.metric("Смещение", f"{model_stats['bias']:.4f}")
 
-                st.subheader("Weight Distribution")
+                st.subheader("Распределение весов")
                 fig = px.histogram(
                     x=model.weights, nbins=50, title="Distribution of Model Weights"
                 )
@@ -554,7 +573,7 @@ class ModelExplanationPage:
 
 class DataAnalysisPage:
     def render(self, state: AppState) -> None:
-        st.title("📊 Data Analysis")
+        st.title("📊 Анализ данных")
         st.markdown("---")
 
         app_config = state.get("app_config", {})
@@ -565,21 +584,21 @@ class DataAnalysisPage:
             self._render_data_analysis(state)
 
     def _render_data_loading(self, state: AppState, app_config: dict) -> None:
-        st.header("Load Dataset")
+        st.header("Загрузить датасет")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("Use Demo Data")
+            st.subheader("Использовать демо данные")
 
             data_path = app_config.get("ml_pipeline", {}).get(
                 "data_path", "datasets/TitanicDataset.csv"
             )
 
-            st.write(f"Using data path: `{data_path}`")
+            st.write(f"Используется путь к данным: `{data_path}`")
 
-            if st.button("Load Titanic Dataset", type="primary"):
-                with st.spinner("Loading dataset..."):
+            if st.button("Загрузить датасет Титаника", type="primary"):
+                with st.spinner("Загрузка датасета..."):
                     try:
                         repo = CSVDataRepository(data_path, target_column="Survived")
                         state["dataset"] = repo.load_data()
@@ -588,34 +607,36 @@ class DataAnalysisPage:
                         if dataset.target is not None:
                             dataset.target = dataset.target.astype(np.float64)
 
-                        st.success("Dataset loaded successfully!")
+                        st.success("Датасет успешно загружен!")
                         st.rerun()
                     except Exception as e:
-                        st.error(f"Error loading dataset from {data_path}: {e}")
+                        st.error(f"Ошибка загрузки датасета из {data_path}: {e}")
                         fallback_path = "datasets/TitanicDataset.csv"
                         if data_path != fallback_path:
-                            st.info(f"Trying fallback dataset: {fallback_path}")
+                            st.info(f"Пробуем запасной датасет: {fallback_path}")
                             try:
                                 repo = CSVDataRepository(
                                     fallback_path, target_column="Survived"
                                 )
                                 state["dataset"] = repo.load_data()
-                                st.success("Fallback dataset loaded successfully!")
+                                st.success("Запасной датасет успешно загружен!")
                                 st.rerun()
                             except Exception as fallback_e:
-                                st.error(f"Fallback also failed: {fallback_e}")
+                                st.error(f"Запасной также не сработал: {fallback_e}")
 
         with col2:
-            st.subheader("Upload Custom Data")
-            uploaded_file = st.file_uploader("Choose CSV file", type="csv")
+            st.subheader("Загрузить свои данные")
+            uploaded_file = st.file_uploader("Выберите CSV файл", type="csv")
             if uploaded_file is not None:
                 try:
                     df = pd.read_csv(uploaded_file)
-                    st.success(f"Loaded {len(df)} rows with {len(df.columns)} columns")
+                    st.success(
+                        f"Загружено {len(df)} строк с {len(df.columns)} колонками"
+                    )
 
-                    target_col = st.selectbox("Select target column", df.columns)
+                    target_col = st.selectbox("Выберите целевую колонку", df.columns)
 
-                    if st.button("Process Uploaded Data"):
+                    if st.button("Обработать загруженные данные"):
                         state["dataset"] = Dataset(
                             features=df.drop(columns=[target_col]),
                             target=df[target_col],
@@ -625,7 +646,7 @@ class DataAnalysisPage:
                         st.rerun()
 
                 except Exception as e:
-                    st.error(f"Error processing file: {e}")
+                    st.error(f"Ошибка обработки файла: {e}")
 
     def _create_interactive_plots(self, dataset: Dataset):
         st.subheader("Интерактивный анализ выживаемости")
@@ -647,32 +668,32 @@ class DataAnalysisPage:
     def _render_data_analysis(self, state: AppState) -> None:
         dataset = state["dataset"]
 
-        st.header("Dataset Overview")
+        st.header("Обзор датасета")
 
         table_component = DataTableComponent()
-        table_component.render(dataset.features, "Titanic Dataset")
+        table_component.render(dataset.features, "Датасет Титаника")
 
-        st.header("Statistical Summary")
+        st.header("Статистическая сводка")
 
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("Numerical Features")
+            st.subheader("Числовые характеристики")
             st.dataframe(dataset.features.describe(), width="stretch")
 
         with col2:
-            st.subheader("Categorical Features")
+            st.subheader("Категориальные характеристики")
             categorical_stats = {}
             for col in dataset.features.select_dtypes(include=["object"]).columns:
                 categorical_stats[col] = dataset.features[col].value_counts().head()
             st.json(categorical_stats)
 
-        st.header("Data Visualizations")
+        st.header("Визуализации данных")
 
         self._create_interactive_plots(dataset=dataset)
 
-        if st.button("Generate Analysis Plots", type="primary"):
-            with st.spinner("Creating visualizations..."):
+        if st.button("Сгенерировать графики анализа", type="primary"):
+            with st.spinner("Создание визуализаций..."):
                 try:
                     visualizer = EDAVisualizer()
 
@@ -682,40 +703,42 @@ class DataAnalysisPage:
 
                     plot_component = PlotComponent()
 
-                    st.subheader("Survival Analysis")
+                    st.subheader("Анализ выживаемости")
                     cols = st.columns(2)
                     for i, (name, path) in enumerate(survival_plots.items()):
                         with cols[i % 2]:
                             plot_component.render(path, name.replace("_", " ").title())
 
-                    st.subheader("Demographic Analysis")
+                    st.subheader("Демографический анализ")
                     cols = st.columns(2)
                     for i, (name, path) in enumerate(demographic_plots.items()):
                         with cols[i % 2]:
                             plot_component.render(path, name.replace("_", " ").title())
 
-                    st.subheader("Correlation Analysis")
+                    st.subheader("Корреляционный анализ")
                     for name, path in correlation_plots.items():
                         plot_component.render(path, name.replace("_", " ").title())
 
                 except Exception as e:
-                    st.error(f"Error generating plots: {e}")
+                    st.error(f"Ошибка генерации графиков: {e}")
 
 
 class ModelTrainingPage:
     def render(self, state: AppState) -> None:
-        st.title("🤖 Model Training")
+        st.title("🤖 Обучение модели")
         st.markdown("---")
 
         if state.get("dataset") is None:
-            st.warning("Please load a dataset first from the Data Analysis page.")
+            st.warning(
+                "Пожалуйста сначала загрузите датасет на странице Анализ данных."
+            )
             return
 
-        st.header("Training Configuration")
+        st.header("Конфигурация обучения")
 
         training_config = self._render_training_controls()
 
-        if st.button("Train Model", type="primary"):
+        if st.button("Обучить модель", type="primary"):
             self._train_model(state, training_config)
 
         if state.get("trained_model") is not None:
@@ -725,22 +748,22 @@ class ModelTrainingPage:
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            learning_rate = st.slider("Learning Rate", 0.001, 0.5, 0.05, 0.001)
-            epochs = st.number_input("Epochs", 1000, 100000, 3000, 100)
+            learning_rate = st.slider("Скорость обучения", 0.001, 0.5, 0.05, 0.001)
+            epochs = st.number_input("Эпохи", 1000, 100000, 3000, 100)
 
         with col2:
-            test_size = st.slider("Test Size", 0.1, 0.5, 0.2, 0.05)
-            random_state = st.number_input("Random State", 0, 100, 42)
+            test_size = st.slider("Размер теста", 0.1, 0.5, 0.2, 0.05)
+            random_state = st.number_input("Случайное состояние", 0, 100, 42)
 
         with col3:
             convergence_tol = st.number_input(
-                "Convergence Tolerance",
+                "Допуск сходимости",
                 1e-8,
                 1e-4,
                 1e-4,
                 1e-8,
             )
-            batch_size = st.selectbox("Batch Size", ["full", 32, 64, 128], index=0)
+            batch_size = st.selectbox("Размер батча", ["полный", 32, 64, 128], index=0)
 
         return {
             "learning_rate": learning_rate,
@@ -753,7 +776,7 @@ class ModelTrainingPage:
 
     def _train_model(self, state: AppState, config: Dict[str, Any]) -> None:
         try:
-            with st.spinner("Training model..."):
+            with st.spinner("Обучение модели..."):
                 if state.get("preprocessing_pipeline") is None:
                     state["preprocessing_pipeline"] = (
                         PreprocessorFactory.create_titanic_preprocessor()
@@ -788,14 +811,14 @@ class ModelTrainingPage:
                         "X_std": getattr(training_service, "X_std", None),
                     }
 
-                st.success("Model trained successfully!")
+                st.success("Модель успешно обучена!")
                 st.rerun()
 
         except Exception as e:
-            st.error(f"Error training model: {e}")
+            st.error(f"Ошибка обучения модели: {e}")
 
     def _render_training_results(self, state: AppState) -> None:
-        st.header("Training Results")
+        st.header("Результаты обучения")
 
         model = state["trained_model"]
         training_result = state.get("training_result")
@@ -803,27 +826,27 @@ class ModelTrainingPage:
         col1, col2 = st.columns(2)
 
         with col1:
-            st.subheader("Model Information")
-            st.metric("Number of Features", len(model.feature_names))
-            st.metric("Final Loss", f"{state['training_history'][-1]:.6f}")
+            st.subheader("Информация о модели")
+            st.metric("Количество фич", len(model.feature_names))
+            st.metric("Финальные потери", f"{state['training_history'][-1]:.6f}")
 
             if training_result:
-                st.metric("Training Time", f"{training_result.training_time:.2f}s")
+                st.metric("Время обучения", f"{training_result.training_time:.2f}s")
             else:
-                st.metric("Training Time", "N/A")
+                st.metric("Время обучения", "Н/Д")
 
         with col2:
-            st.subheader("Feature Importance")
+            st.subheader("Важность фич")
             importance_data = {
-                "Feature": model.feature_names,
-                "Importance": np.abs(model.weights),
+                "Фича": model.feature_names,
+                "Важность": np.abs(model.weights),
             }
             importance_df = pd.DataFrame(importance_data).sort_values(
-                "Importance", ascending=False
+                "Важность", ascending=False
             )
             st.dataframe(importance_df.head(55), width="stretch")
 
-        st.subheader("Training Progress")
+        st.subheader("Прогресс обучения")
 
         fig = go.Figure()
         fig.add_trace(
@@ -831,27 +854,27 @@ class ModelTrainingPage:
                 x=list(range(len(state["training_history"]))),
                 y=state["training_history"],
                 mode="lines",
-                name="Training Loss",
+                name="Потери обучения",
                 line=dict(color="blue", width=2),
             )
         )
 
         fig.update_layout(
-            title="Training Loss Over Time",
-            xaxis_title="Epoch",
-            yaxis_title="Loss",
+            title="Потери обучения во времени",
+            xaxis_title="Эпоха",
+            yaxis_title="Потери",
             showlegend=True,
             template="plotly_white",
         )
 
         st.plotly_chart(fig, width="stretch")
 
-        if st.button("Evaluate Model", type="secondary"):
+        if st.button("Оценить модель", type="secondary"):
             self._evaluate_model(state)
 
     def _evaluate_model(self, state: AppState) -> None:
         try:
-            with st.spinner("Evaluating model..."):
+            with st.spinner("Оценка модели..."):
                 preprocessor = state["preprocessing_pipeline"]
                 training_service = ServiceFactory.create_training_service(preprocessor)
 
@@ -866,26 +889,26 @@ class ModelTrainingPage:
                 )
 
         except Exception as e:
-            st.error(f"Error evaluating model: {e}")
+            st.error(f"Ошибка оценки модели: {e}")
 
 
 class PredictionPage:
     def render(self, state: AppState) -> None:
-        st.title("🔮 Survival Prediction")
+        st.title("🔮 Предсказание выживания")
         st.markdown("---")
 
         if state.get("trained_model") is None:
-            st.warning("Please train a model first from the Model Training page.")
+            st.warning("Пожалуйста сначала обучите модель на странице Обучение модели.")
             return
 
-        with st.expander("Model Debug Info"):
+        with st.expander("Отладочная информация модели"):
             model = state["trained_model"]
-            st.write(f"Number of features in model: {len(model.feature_names)}")
-            st.write(f"Feature names: {model.feature_names}")
-            st.write(f"Model weights shape: {model.weights.shape}")
-            st.write(f"Model bias: {model.bias}")
+            st.write(f"Количество фич в модели: {len(model.feature_names)}")
+            st.write(f"Названия фич: {model.feature_names}")
+            st.write(f"Форма весов модели: {model.weights.shape}")
+            st.write(f"Смещение модели: {model.bias}")
 
-        st.header("Make a Prediction")
+        st.header("Сделать предсказание")
 
         form_component = PredictionFormComponent()
         passenger = form_component.render()
@@ -898,7 +921,7 @@ class PredictionPage:
 
     def _make_prediction(self, state: AppState, passenger: Passenger) -> None:
         try:
-            with st.spinner("Calculating prediction..."):
+            with st.spinner("Вычисление предсказания..."):
                 preprocessor = state["preprocessing_pipeline"]
                 prediction_service = ServiceFactory.create_prediction_service(
                     state["trained_model"], preprocessor
@@ -911,20 +934,20 @@ class PredictionPage:
 
                 state["current_predictions"].append(prediction_result)
 
-                with st.expander("Prediction Debug Info"):
-                    st.write(f"Probability: {prediction_result.probability:.4f}")
-                    st.write(f"Prediction: {prediction_result.prediction}")
-                    st.write(f"Confidence: {prediction_result.confidence:.4f}")
-                    st.write(f"Passenger features: {passenger}")
+                with st.expander("Отладочная информация предсказания"):
+                    st.write(f"Вероятность: {prediction_result.probability:.4f}")
+                    st.write(f"Предсказание: {prediction_result.prediction}")
+                    st.write(f"Уверенность: {prediction_result.confidence:.4f}")
+                    st.write(f"Фичи пассажира: {passenger}")
 
                 self._render_prediction_result(prediction_result)
 
         except Exception as e:
-            st.error(f"Error making prediction: {e}")
-            st.error(f"Detailed error: {str(e)}")
+            st.error(f"Ошибка выполнения предсказания: {e}")
+            st.error(f"Детальная ошибка: {str(e)}")
 
     def _render_prediction_result(self, prediction: Any) -> None:
-        st.header("Prediction Result")
+        st.header("Результат предсказания")
 
         col1, col2 = st.columns(2)
 
@@ -933,9 +956,9 @@ class PredictionPage:
             survived = prediction.prediction
 
             st.metric(
-                "Survival Probability",
+                "Вероятность выживания",
                 f"{probability:.1%}",
-                delta="Survived" if survived else "Did Not Survive",
+                delta="Выжил" if survived else "Не выжил",
                 delta_color="normal" if survived else "inverse",
             )
 
@@ -944,7 +967,7 @@ class PredictionPage:
                     mode="gauge+number+delta",
                     value=probability * 100,
                     domain={"x": [0, 1], "y": [0, 1]},
-                    title={"text": "Survival Chance"},
+                    title={"text": "Шанс выживания"},
                     delta={"reference": 50},
                     gauge={
                         "axis": {"range": [0, 100]},
@@ -966,33 +989,33 @@ class PredictionPage:
             st.plotly_chart(gauge_fig, width="stretch")
 
         with col2:
-            st.subheader("Passenger Details")
+            st.subheader("Детали пассажира")
             passenger_info = {
-                "Class": prediction.passenger.pclass,
-                "Gender": prediction.passenger.sex,
-                "Age": prediction.passenger.age,
-                "Siblings/Spouses": prediction.passenger.sibsp,
-                "Parents/Children": prediction.passenger.parch,
-                "Fare": f"${prediction.passenger.fare:.2f}",
-                "Embarkation": prediction.passenger.embarked,
+                "Класс": prediction.passenger.pclass,
+                "Пол": prediction.passenger.sex,
+                "Возраст": prediction.passenger.age,
+                "Братья/Супруги": prediction.passenger.sibsp,
+                "Родители/Дети": prediction.passenger.parch,
+                "Плата": f"${prediction.passenger.fare:.2f}",
+                "Порт посадки": prediction.passenger.embarked,
             }
 
             for key, value in passenger_info.items():
                 st.write(f"**{key}:** {value}")
 
     def _render_prediction_history(self, state: AppState) -> None:
-        st.header("Prediction History")
+        st.header("История предсказаний")
 
         history_data = []
         for pred in state["current_predictions"][-10:]:
             history_data.append(
                 {
-                    "Probability": f"{pred.probability:.1%}",
-                    "Prediction": "Survived" if pred.prediction else "Did Not Survive",
-                    "Age": pred.passenger.age,
-                    "Class": pred.passenger.pclass,
-                    "Gender": pred.passenger.sex,
-                    "Timestamp": pred.timestamp.strftime("%H:%M:%S"),
+                    "Вероятность": f"{pred.probability:.1%}",
+                    "Предсказание": "Выжил" if pred.prediction else "Не выжил",
+                    "Возраст": pred.passenger.age,
+                    "Класс": pred.passenger.pclass,
+                    "Пол": pred.passenger.sex,
+                    "Время": pred.timestamp.strftime("%H:%M:%S"),
                 }
             )
 
@@ -1003,11 +1026,11 @@ class PredictionPage:
 class TitanicApp:
     def __init__(self, app_config: dict = None):
         self.pages = {
-            "Home": HomePage(),
-            "Data Analysis": DataAnalysisPage(),
-            "Model Training": ModelTrainingPage(),
-            "Model Explanation": ModelExplanationPage(),
-            "Predictions": PredictionPage(),
+            "Главная": HomePage(),
+            "Анализ данных": DataAnalysisPage(),
+            "Обучение модели": ModelTrainingPage(),
+            "Объяснение модели": ModelExplanationPage(),
+            "Предсказания": PredictionPage(),
         }
         self.app_config = app_config or {}
 
@@ -1021,13 +1044,13 @@ class TitanicApp:
 
         if "app_state" not in st.session_state:
             st.session_state.app_state = {
-                "current_page": "Home",
+                "current_page": "Главная",
                 "dataset": None,
                 "trained_model": None,
                 "preprocessing_pipeline": None,
                 "current_predictions": [],
                 "training_history": [],
-                "app_config": self.app_config,  # Передаем конфиг в состояние
+                "app_config": self.app_config,
             }
 
         self._render_sidebar()
@@ -1039,7 +1062,7 @@ class TitanicApp:
             st.markdown("---")
 
             selected_page = st.radio(
-                "Navigation",
+                "Навигация",
                 list(self.pages.keys()),
                 index=list(self.pages.keys()).index(
                     st.session_state.app_state["current_page"]
@@ -1050,7 +1073,7 @@ class TitanicApp:
 
             st.markdown("---")
 
-            st.subheader("App Status")
+            st.subheader("Статус приложения")
 
             app_config = st.session_state.app_state.get("app_config", {})
             data_path = app_config.get("ml_pipeline", {}).get(
@@ -1058,30 +1081,30 @@ class TitanicApp:
             )
 
             dataset_status = (
-                "✅ Loaded"
+                "✅ Загружен"
                 if st.session_state.app_state.get("dataset")
-                else "❌ Not Loaded"
+                else "❌ Не загружен"
             )
             model_status = (
-                "✅ Trained"
+                "✅ Обучена"
                 if st.session_state.app_state.get("trained_model")
-                else "❌ Not Trained"
+                else "❌ Не обучена"
             )
 
-            st.write(f"Dataset: {dataset_status}")
-            st.write(f"Model: {model_status}")
-            st.write(f"Data path: {data_path}")
+            st.write(f"Датасет: {dataset_status}")
+            st.write(f"Модель: {model_status}")
+            st.write(f"Путь к данным: {data_path}")
 
             if st.session_state.app_state.get("dataset"):
                 dataset = st.session_state.app_state["dataset"]
-                st.write(f"Rows: {len(dataset.features)}")
-                st.write(f"Features: {len(dataset.feature_names)}")
+                st.write(f"Строки: {len(dataset.features)}")
+                st.write(f"Фичи: {len(dataset.feature_names)}")
 
             st.markdown("---")
 
-            if st.button("Clear All Data", type="secondary"):
+            if st.button("Очистить все данные", type="secondary"):
                 st.session_state.app_state = {
-                    "current_page": "Home",
+                    "current_page": "Главная",
                     "dataset": None,
                     "trained_model": None,
                     "preprocessing_pipeline": None,

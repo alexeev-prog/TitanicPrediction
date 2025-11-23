@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 
-import sys
-import subprocess
 import argparse
+import subprocess
+import sys
 
 
 def main():
