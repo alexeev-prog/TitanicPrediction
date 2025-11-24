@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Literal, Optional, Protocol, Tuple
+from typing import Any, Literal, Protocol
 
 import pandas as pd
 from loguru import logger
@@ -19,13 +19,13 @@ class IDataTransformer(Protocol):
     def fit(self, dataset: Dataset) -> None: ...
     def transform(self, dataset: Dataset) -> Dataset: ...
     def fit_transform(self, dataset: Dataset) -> Dataset: ...
-    def get_params(self) -> Dict[str, Any]: ...
+    def get_params(self) -> dict[str, Any]: ...
 
 
 @dataclass
 class AgeImputer:
     strategy: Literal["mean", "median", "mode", "constant"] = "median"
-    fill_value: Optional[float] = None
+    fill_value: float | None = None
     _imputer: Any = None
 
     def fit(self, dataset: Dataset) -> None:
@@ -63,17 +63,17 @@ class AgeImputer:
         self.fit(dataset)
         return self.transform(dataset)
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         return {"strategy": self.strategy, "fill_value": self.fill_value}
 
 
 @dataclass
 class CategoricalEncoder:
     encoding_type: Literal["onehot", "label"] = "onehot"
-    columns: List[str] = None
+    columns: list[str] = None
     handle_unknown: Literal["error", "ignore", "use_encoded_value"] = "error"
-    _encoders: Dict[str, Any] = None
-    _feature_names: List[str] = None
+    _encoders: dict[str, Any] = None
+    _feature_names: list[str] = None
 
     def __post_init__(self):
         self._encoders = {}
@@ -117,11 +117,10 @@ class CategoricalEncoder:
                 try:
                     encoded = encoder.transform(features[column])
                     features[column] = encoded
-                except ValueError as e:
+                except ValueError:
                     if self.handle_unknown == "error":
-                        raise e
-                    else:
-                        features[column] = -1
+                        raise
+                    features[column] = -1
 
         return Dataset(
             features=features,
@@ -134,14 +133,14 @@ class CategoricalEncoder:
         self.fit(dataset)
         return self.transform(dataset)
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         return {
             "encoding_type": self.encoding_type,
             "columns": self.columns,
             "handle_unknown": self.handle_unknown,
         }
 
-    def _update_feature_names(self, original_col: str, new_cols: List[str]) -> None:
+    def _update_feature_names(self, original_col: str, new_cols: list[str]) -> None:
         if original_col in self._feature_names:
             index = self._feature_names.index(original_col)
             self._feature_names.remove(original_col)
@@ -154,10 +153,10 @@ class CategoricalEncoder:
 @dataclass
 class FeatureScaler:
     method: Literal["standard", "minmax", "robust"] = "standard"
-    columns: List[str] = None
+    columns: list[str] = None
     with_mean: bool = True
     with_std: bool = True
-    _scalers: Dict[str, Any] = None
+    _scalers: dict[str, Any] = None
 
     def __post_init__(self):
         self._scalers = {}
@@ -208,7 +207,7 @@ class FeatureScaler:
         self.fit(dataset)
         return self.transform(dataset)
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         return {
             "method": self.method,
             "columns": self.columns,
@@ -221,8 +220,8 @@ class FeatureScaler:
 class TitleExtractor:
     name_column: str = "Name"
     title_column: str = "Title"
-    custom_mappings: Dict[str, str] = None
-    _title_patterns: Dict[str, str] = None
+    custom_mappings: dict[str, str] = None
+    _title_patterns: dict[str, str] = None
 
     def __post_init__(self):
         if self.custom_mappings is None:
@@ -263,7 +262,7 @@ class TitleExtractor:
                 original, mapped
             )
 
-        new_feature_names = dataset.feature_names + [self.title_column]
+        new_feature_names = [*dataset.feature_names, self.title_column]
 
         return Dataset(
             features=features,
@@ -275,7 +274,7 @@ class TitleExtractor:
     def fit_transform(self, dataset: Dataset) -> Dataset:
         return self.transform(dataset)
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         return {
             "name_column": self.name_column,
             "title_column": self.title_column,
@@ -285,7 +284,7 @@ class TitleExtractor:
 
 class DataPreprocessor:
     def __init__(self):
-        self.preprocessing_steps: List[Tuple[str, IDataTransformer]] = []
+        self.preprocessing_steps: list[tuple[str, IDataTransformer]] = []
         self.fitted: bool = False
 
     def add_step(self, name: str, transformer: IDataTransformer) -> None:
@@ -327,7 +326,7 @@ class DataPreprocessor:
         transformed = self.transform(dummy_dataset)
         return transformed.features
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         params = {}
         for name, transformer in self.preprocessing_steps:
             params[name] = transformer.get_params()
@@ -336,7 +335,7 @@ class DataPreprocessor:
 
 @dataclass
 class ColumnDropper:
-    columns: List[str] = None
+    columns: list[str] = None
 
     def __post_init__(self):
         if self.columns is None:
@@ -367,7 +366,7 @@ class ColumnDropper:
     def fit_transform(self, dataset: Dataset) -> Dataset:
         return self.transform(dataset)
 
-    def get_params(self) -> Dict[str, Any]:
+    def get_params(self) -> dict[str, Any]:
         return {"columns": self.columns}
 
 

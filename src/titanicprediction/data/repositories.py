@@ -1,6 +1,6 @@
 import pickle
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 import pandas as pd
 from loguru import logger
@@ -11,13 +11,13 @@ from titanicprediction.entities.core import Dataset, TrainedModel
 class IDataRepository(Protocol):
     def load_data(self) -> Dataset: ...
     def save_data(self, dataset: Dataset) -> bool: ...
-    def get_metadata(self) -> Dict[str, Any]: ...
+    def get_metadata(self) -> dict[str, Any]: ...
 
 
 class IModelRepository(Protocol):
     def save_model(self, model: TrainedModel, name: str) -> bool: ...
-    def load_model(self, name: str) -> Optional[TrainedModel]: ...
-    def list_models(self) -> List[str]: ...
+    def load_model(self, name: str) -> TrainedModel | None: ...
+    def list_models(self) -> list[str]: ...
 
 
 class CSVDataRepository:
@@ -62,7 +62,7 @@ class CSVDataRepository:
             logger.error(f"Error when saving data to {self.file_path}: {e}")
             return False
 
-    def get_metadata(self) -> Dict[str, Any]:
+    def get_metadata(self) -> dict[str, Any]:
         try:
             dataset = self.load_data()
 
@@ -99,7 +99,7 @@ class FileModelRepository:
             logger.error(f"Error when saving model {name}: {e}")
             return False
 
-    def load_model(self, name: str) -> Optional[TrainedModel]:
+    def load_model(self, name: str) -> TrainedModel | None:
         try:
             model_file = self.models_dir / f"{name}.pkl"
 
@@ -117,7 +117,7 @@ class FileModelRepository:
             logger.error(f"Error when loading model {name}: {e}")
             return None
 
-    def list_models(self) -> List[str]:
+    def list_models(self) -> list[str]:
         try:
             model_files = list(self.models_dir.glob("*.pkl"))
             return [f.stem for f in model_files]
@@ -125,7 +125,7 @@ class FileModelRepository:
             logger.error(f"Error when getting list of models: {e}")
             return []
 
-    def get_model_info(self, name: str) -> Optional[Dict[str, Any]]:
+    def get_model_info(self, name: str) -> dict[str, Any] | None:
         model = self.load_model(name)
         if model is None:
             return None
@@ -145,9 +145,8 @@ class FileModelRepository:
                 model_file.unlink()
                 logger.info(f"Model {name} deleted")
                 return True
-            else:
-                logger.warning(f"Model {name} not found for deleting")
-                return False
+            logger.warning(f"Model {name} not found for deleting")
+            return False
 
         except Exception as e:
             logger.error(f"Error when deleting model {name}: {e}")

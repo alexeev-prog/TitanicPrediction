@@ -1,7 +1,7 @@
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, TypedDict
+from typing import Any, TypedDict
 
 import numpy as np
 import pandas as pd
@@ -20,12 +20,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 class AppState(TypedDict):
     current_page: str
-    dataset: Optional[Dataset]
-    trained_model: Optional[TrainedModel]
-    preprocessing_pipeline: Optional[Any]
-    current_predictions: List[Any]
-    training_history: List[float]
-    training_result: Optional[Any]
+    dataset: Dataset | None
+    trained_model: TrainedModel | None
+    preprocessing_pipeline: Any | None
+    current_predictions: list[Any]
+    training_history: list[float]
+    training_result: Any | None
 
 
 class DataTableComponent:
@@ -105,7 +105,7 @@ class PlotComponent:
 
 
 class ModelMetricsComponent:
-    def render(self, metrics: Dict[str, float], confusion_matrix: np.ndarray) -> None:
+    def render(self, metrics: dict[str, float], confusion_matrix: np.ndarray) -> None:
         st.subheader("Метрики производительности модели")
 
         col1, col2, col3, col4 = st.columns(4)
@@ -134,7 +134,7 @@ class ModelMetricsComponent:
     def _render_confusion_matrix(self, cm: np.ndarray) -> None:
         fig = px.imshow(
             cm,
-            labels=dict(x="Предсказано", y="Актуально", color="Число"),
+            labels={"x": "Предсказано", "y": "Актуально", "color": "Число"},
             x=["Не выжило", "Выжило"],
             y=["Не выжило", "Выжило"],
             color_continuous_scale="Blues",
@@ -148,12 +148,12 @@ class ModelMetricsComponent:
                     y=i,
                     text=str(cm[i, j]),
                     showarrow=False,
-                    font=dict(color="red" if cm[i, j] > cm.max() / 2 else "black"),
+                    font={"color": "red" if cm[i, j] > cm.max() / 2 else "black"},
                 )
 
         st.plotly_chart(fig, width="stretch")
 
-    def _render_detailed_metrics(self, metrics: Dict[str, float]) -> None:
+    def _render_detailed_metrics(self, metrics: dict[str, float]) -> None:
         detailed_metrics = {
             "Метрики": ["Accuracy", "Precision", "Recall", "F1-Score", "Support"],
             "Значение": [
@@ -1192,7 +1192,7 @@ class ModelTrainingPage:
         if state.get("trained_model") is not None:
             self._render_training_results(state)
 
-    def _render_training_controls(self) -> Dict[str, Any]:
+    def _render_training_controls(self) -> dict[str, Any]:
         col1, col2, col3 = st.columns(3)
 
         with col1:
@@ -1222,7 +1222,7 @@ class ModelTrainingPage:
             "batch_size": batch_size,
         }
 
-    def _train_model(self, state: AppState, config: Dict[str, Any]) -> None:
+    def _train_model(self, state: AppState, config: dict[str, Any]) -> None:
         try:
             with st.spinner("Обучение модели..."):
                 if state.get("preprocessing_pipeline") is None:
@@ -1303,7 +1303,7 @@ class ModelTrainingPage:
                 y=state["training_history"],
                 mode="lines",
                 name="Потери обучения",
-                line=dict(color="blue", width=2),
+                line={"color": "blue", "width": 2},
             )
         )
 
@@ -1392,7 +1392,7 @@ class PredictionPage:
 
         except Exception as e:
             st.error(f"Ошибка выполнения предсказания: {e}")
-            st.error(f"Детальная ошибка: {str(e)}")
+            st.error(f"Детальная ошибка: {e!s}")
 
     def _render_prediction_result(self, prediction: Any) -> None:
         st.header("Результат предсказания")
@@ -1472,7 +1472,7 @@ class PredictionPage:
 
 
 class TitanicApp:
-    def __init__(self, app_config: dict = None):
+    def __init__(self, app_config: dict | None = None):
         self.pages = {
             "Главная": HomePage(),
             "Анализ данных": DataAnalysisPage(),

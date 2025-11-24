@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Protocol, Tuple
+from typing import Any, Protocol
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,9 +37,9 @@ class PlotConfig:
     title: str
     x_label: str
     y_label: str
-    figsize: Tuple[int, int] = (10, 6)
+    figsize: tuple[int, int] = (10, 6)
     style: str = "seaborn-v0_8"
-    colors: List[str] = None
+    colors: list[str] = None
     save_format: str = "png"
     dpi: int = 300
     font_size: int = 12
@@ -52,14 +52,14 @@ class PlotResult:
     figure: plt.Figure
     axes: plt.Axes
     config: PlotConfig
-    metadata: Dict[str, Any]
+    metadata: dict[str, Any]
 
 
 class IVisualizer(Protocol):
     def create_plot(self, data: Any, plot_config: PlotConfig) -> PlotResult: ...
 
     def save_plot(self, plot: PlotResult, filename: str) -> Path: ...
-    def get_supported_formats(self) -> List[str]: ...
+    def get_supported_formats(self) -> list[str]: ...
 
 
 class DistributionVisualizer:
@@ -155,7 +155,7 @@ class CorrelationVisualizer:
 
 class TrainingVisualizer:
     def create_plot(
-        self, loss_history: List[float], plot_config: PlotConfig
+        self, loss_history: list[float], plot_config: PlotConfig
     ) -> PlotResult:
         plt.style.use(plot_config.style)
         fig, ax = plt.subplots(figsize=plot_config.figsize)
@@ -175,7 +175,7 @@ class TrainingVisualizer:
         return PlotResult(figure=fig, axes=ax, config=plot_config, metadata=metadata)
 
     def _create_training_curve(
-        self, ax: plt.Axes, loss_history: List[float], config: PlotConfig
+        self, ax: plt.Axes, loss_history: list[float], config: PlotConfig
     ) -> None:
         color = config.colors[0] if config.colors else "blue"
         ax.plot(range(len(loss_history)), loss_history, color=color, linewidth=2)
@@ -237,7 +237,7 @@ class FeatureAnalysisVisualizer:
             ax.set_xticks(x_pos)
             ax.set_xticklabels([str(x) for x in survival_by_feature.index])
 
-            for i, (idx, row) in enumerate(survival_by_feature.iterrows()):
+            for i, (_idx, row) in enumerate(survival_by_feature.iterrows()):
                 ax.text(
                     i,
                     row["mean"] * 100 + 1,
@@ -338,7 +338,7 @@ class FeatureAnalysisVisualizer:
                 else plt.cm.Pastel1(range(len(value_counts)))
             )
 
-            wedges, texts, autotexts = ax.pie(
+            _wedges, _texts, autotexts = ax.pie(
                 value_counts.values,
                 labels=value_counts.index,
                 autopct="%1.1f%%",
@@ -396,7 +396,7 @@ class EDAVisualizer:
         self.training_visualizer = TrainingVisualizer()
         self.feature_visualizer = FeatureAnalysisVisualizer()
 
-    def create_survival_analysis_plots(self, dataset: Dataset) -> Dict[str, Path]:
+    def create_survival_analysis_plots(self, dataset: Dataset) -> dict[str, Path]:
         plots = {}
 
         plot_df = dataset.features.copy()
@@ -418,7 +418,7 @@ class EDAVisualizer:
             labels = ["Did Not Survive", "Survived"]
             colors = config.colors if config.colors else ["#ff6b6b", "#4ecdc4"]
 
-            wedges, texts, autotexts = ax.pie(
+            _wedges, _texts, _autotexts = ax.pie(
                 survival_counts.values,
                 labels=labels,
                 autopct="%1.1f%%",
@@ -477,7 +477,7 @@ class EDAVisualizer:
 
         return plots
 
-    def create_demographic_plots(self, dataset: Dataset) -> Dict[str, Path]:
+    def create_demographic_plots(self, dataset: Dataset) -> dict[str, Path]:
         plots = {}
 
         plot_df = dataset.features.copy()
@@ -541,7 +541,7 @@ class EDAVisualizer:
 
         return plots
 
-    def create_correlation_analysis(self, dataset: Dataset) -> Dict[str, Path]:
+    def create_correlation_analysis(self, dataset: Dataset) -> dict[str, Path]:
         plots = {}
 
         numeric_features = dataset.features.select_dtypes(include=[np.number])
@@ -562,7 +562,7 @@ class EDAVisualizer:
 
         return plots
 
-    def create_training_plots(self, loss_history: List[float]) -> Dict[str, Path]:
+    def create_training_plots(self, loss_history: list[float]) -> dict[str, Path]:
         plots = {}
 
         config = PlotConfig(
@@ -578,7 +578,7 @@ class EDAVisualizer:
 
         return plots
 
-    def create_feature_importance_plot(self, model: TrainedModel) -> Dict[str, Path]:
+    def create_feature_importance_plot(self, model: TrainedModel) -> dict[str, Path]:
         plots = {}
 
         importance_df = pd.DataFrame(
@@ -615,5 +615,5 @@ class EDAVisualizer:
         logger.info(f"Plot saved: {filepath}")
         return filepath
 
-    def get_supported_formats(self) -> List[str]:
+    def get_supported_formats(self) -> list[str]:
         return ["png", "jpg", "jpeg", "svg", "pdf"]

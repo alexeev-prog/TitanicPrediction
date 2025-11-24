@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, Literal, Union
 
 import numpy as np
 import pandas as pd
@@ -32,10 +32,10 @@ class Passenger:
     sibsp: int
     parch: int
     fare: float
-    embarked: Optional[EmbarkedType]
-    cabin: Optional[str]
-    title: Optional[TitleType]
-    ticket: Optional[str]
+    embarked: EmbarkedType | None
+    cabin: str | None
+    title: TitleType | None
+    ticket: str | None
 
     def validate(self) -> bool:
         if not self.name or not self.sex:
@@ -50,10 +50,7 @@ class Passenger:
         if self.sibsp < 0 or self.parch < 0:
             return False
 
-        if self.pclass not in [1, 2, 3]:
-            return False
-
-        return True
+        return self.pclass in [1, 2, 3]
 
     def is_valid(self) -> bool:
         required_fields = ["pclass", "sex", "age", "sibsp", "parch", "fare"]
@@ -65,7 +62,7 @@ class Passenger:
 
         return self.age is not None and self.fare is not None
 
-    def get_missing_fields(self) -> List[str]:
+    def get_missing_fields(self) -> list[str]:
         missing = []
 
         if not self.name:
@@ -94,18 +91,18 @@ class Passenger:
 @dataclass
 class Dataset:
     features: pd.DataFrame
-    target: Optional[pd.Series]
-    feature_names: List[str]
-    target_name: Optional[str]
-    metadata: Dict[str, Any] = None
+    target: pd.Series | None
+    feature_names: list[str]
+    target_name: str | None
+    metadata: dict[str, Any] = None
 
-    def get_shape(self) -> Tuple[int, int]:
+    def get_shape(self) -> tuple[int, int]:
         return self.features.shape
 
-    def get_feature_types(self) -> Dict[str, str]:
+    def get_feature_types(self) -> dict[str, str]:
         return self.features.dtypes.astype(str).to_dict()
 
-    def split(self, ratio: float) -> Tuple["Dataset", "Dataset"]:
+    def split(self, ratio: float) -> tuple["Dataset", "Dataset"]:
         from sklearn.model_selection import train_test_split
 
         X_train, X_test, y_train, y_test = train_test_split(
@@ -128,7 +125,7 @@ class Dataset:
 
         return train_dataset, test_dataset
 
-    def describe(self) -> Dict[str, Any]:
+    def describe(self) -> dict[str, Any]:
         return {
             "shape": self.get_shape(),
             "feature_types": self.get_feature_types(),
@@ -143,12 +140,12 @@ class Dataset:
 class TrainedModel:
     weights: np.ndarray
     bias: float
-    feature_names: List[str]
-    training_metrics: Dict[str, float]
-    validation_metrics: Dict[str, float]
-    training_history: List[float]
-    model_config: Dict[str, Any]
-    preprocessing_artifacts: Optional[Dict[str, Any]] = None
+    feature_names: list[str]
+    training_metrics: dict[str, float]
+    validation_metrics: dict[str, float]
+    training_history: list[float]
+    model_config: dict[str, Any]
+    preprocessing_artifacts: dict[str, Any] | None = None
 
     def predict(self, features: np.ndarray) -> np.ndarray:
         if features.shape[1] != len(self.feature_names):
@@ -159,9 +156,7 @@ class TrainedModel:
 
         linear_output = np.dot(features, self.weights) + self.bias
         probabilities = 1 / (1 + np.exp(-np.clip(linear_output, -500, 500)))
-        predictions = (probabilities >= 0.5).astype(int)
-
-        return predictions
+        return (probabilities >= 0.5).astype(int)
 
     def predict_proba(self, features: np.ndarray) -> np.ndarray:
         if features.shape[1] != len(self.feature_names):
@@ -175,7 +170,7 @@ class TrainedModel:
 
         return np.column_stack([1 - probabilities, probabilities])
 
-    def get_feature_importance(self) -> Dict[str, float]:
+    def get_feature_importance(self) -> dict[str, float]:
         if len(self.weights) != len(self.feature_names):
             raise ValueError("Weights and feature_names length mismatch")
 
@@ -185,10 +180,12 @@ class TrainedModel:
         if total_importance > 0:
             importance_dict = {
                 feature: float(weight / total_importance * 100)
-                for feature, weight in zip(self.feature_names, absolute_weights)
+                for feature, weight in zip(
+                    self.feature_names, absolute_weights, strict=False
+                )
             }
         else:
-            importance_dict = {feature: 0.0 for feature in self.feature_names}
+            importance_dict = dict.fromkeys(self.feature_names, 0.0)
 
         return importance_dict
 
@@ -206,6 +203,6 @@ class FeatureImpactAnalysis:
 class PredictionExplanation:
     prediction: bool
     probability: float
-    feature_impacts: List[FeatureImpactAnalysis]
-    decision_factors: List[str]
+    feature_impacts: list[FeatureImpactAnalysis]
+    decision_factors: list[str]
     confidence_level: str

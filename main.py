@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 from loguru import logger
@@ -69,7 +69,7 @@ class UIConfig:
 class AppConfig:
     environment: Environment = Environment.DEVELOPMENT
     log_level: LogLevel = LogLevel.INFO
-    log_file: Optional[str] = "logs/titanic_ml.log"
+    log_file: str | None = "logs/titanic_ml.log"
     streamlit: StreamlitConfig = field(default_factory=StreamlitConfig)
     ml_pipeline: MLPipelineConfig = field(default_factory=MLPipelineConfig)
     ui: UIConfig = field(default_factory=UIConfig)
@@ -82,12 +82,12 @@ class DependencyContainer:
     training_service: ModelTrainingService
     visualizer: EDAVisualizer
     preprocessor: DataPreprocessor
-    prediction_service: Optional[PredictionService] = None
+    prediction_service: PredictionService | None = None
 
 
 class ServiceRegistry:
     def __init__(self):
-        self._services: Dict[str, Any] = {}
+        self._services: dict[str, Any] = {}
         self._initialized: bool = False
 
     def register_service(self, name: str, service: Any) -> None:
@@ -98,7 +98,7 @@ class ServiceRegistry:
             raise KeyError(f"Service '{name}' not found in registry")
         return self._services[name]
 
-    def get_all_services(self) -> Dict[str, Any]:
+    def get_all_services(self) -> dict[str, Any]:
         return self._services.copy()
 
     def is_initialized(self) -> bool:
@@ -110,10 +110,10 @@ class ServiceRegistry:
 
 class ConfigurationManager:
     def __init__(self):
-        self._config: Optional[AppConfig] = None
-        self._config_paths: List[Path] = []
+        self._config: AppConfig | None = None
+        self._config_paths: list[Path] = []
 
-    def load_configuration(self, config_path: Optional[str] = None) -> AppConfig:
+    def load_configuration(self, config_path: str | None = None) -> AppConfig:
         default_config = self._get_default_config()
 
         if config_path and Path(config_path).exists():
@@ -136,23 +136,20 @@ class ConfigurationManager:
     def _get_default_config(self) -> AppConfig:
         return AppConfig()
 
-    def _load_config_from_file(self, config_path: Path) -> Dict[str, Any]:
+    def _load_config_from_file(self, config_path: Path) -> dict[str, Any]:
         try:
-            with open(config_path, "r") as f:
-                if config_path.suffix == ".yaml" or config_path.suffix == ".yml":
+            with open(config_path) as f:
+                if config_path.suffix in {".yaml", ".yml"}:
                     return yaml.safe_load(f)
-                elif config_path.suffix == ".json":
+                if config_path.suffix == ".json":
                     return json.load(f)
-                else:
-                    logger.warning(
-                        f"Unsupported config file format: {config_path.suffix}"
-                    )
-                    return {}
+                logger.warning(f"Unsupported config file format: {config_path.suffix}")
+                return {}
         except Exception as e:
             logger.error(f"Error loading config from {config_path}: {e}")
             return {}
 
-    def _load_config_from_env(self) -> Dict[str, Any]:
+    def _load_config_from_env(self) -> dict[str, Any]:
         env_config = {}
 
         if os.getenv("TITANIC_ML_ENV"):
@@ -166,17 +163,17 @@ class ConfigurationManager:
 
         return env_config
 
-    def _merge_configs(self, base: AppConfig, overlay: Dict[str, Any]) -> AppConfig:
+    def _merge_configs(self, base: AppConfig, overlay: dict[str, Any]) -> AppConfig:
         base_dict = self._config_to_dict(base)
         merged_dict = self._deep_merge(base_dict, overlay)
         return self._dict_to_config(merged_dict)
 
-    def _config_to_dict(self, config: AppConfig) -> Dict[str, Any]:
+    def _config_to_dict(self, config: AppConfig) -> dict[str, Any]:
         import dataclasses
 
         return dataclasses.asdict(config)
 
-    def _dict_to_config(self, config_dict: Dict[str, Any]) -> AppConfig:
+    def _dict_to_config(self, config_dict: dict[str, Any]) -> AppConfig:
         streamlit_config = StreamlitConfig(**config_dict.get("streamlit", {}))
         ml_config = MLPipelineConfig(**config_dict.get("ml_pipeline", {}))
         ui_config = UIConfig(**config_dict.get("ui", {}))
@@ -191,8 +188,8 @@ class ConfigurationManager:
         )
 
     def _deep_merge(
-        self, base: Dict[str, Any], overlay: Dict[str, Any]
-    ) -> Dict[str, Any]:
+        self, base: dict[str, Any], overlay: dict[str, Any]
+    ) -> dict[str, Any]:
         result = base.copy()
 
         for key, value in overlay.items():
@@ -227,7 +224,7 @@ class ApplicationInitializer:
     def __init__(self, config: AppConfig):
         self.config = config
         self.service_registry = ServiceRegistry()
-        self.dependency_container: Optional[DependencyContainer] = None
+        self.dependency_container: DependencyContainer | None = None
 
     def setup_dependencies(self) -> DependencyContainer:
         logger.info("Setting up application dependencies...")
@@ -464,12 +461,11 @@ def main() -> None:
 
     if args.cli:
         return run_cli_mode(config)
-    else:
-        return run_streamlit_mode(config, app_config)
+    return run_streamlit_mode(config, app_config)
 
 
 def run_streamlit_mode(config: AppConfig, app_config: dict) -> None:
-    """Запуск в режиме Streamlit"""
+    """Запуск в режиме Streamlit."""
     try:
         initializer = ApplicationInitializer(config)
         initializer.setup_dependencies()
@@ -497,7 +493,7 @@ def check_dataset_exists(data_path: str) -> bool:
 
 
 def run_cli_mode(config: AppConfig) -> None:
-    """Запуск в CLI режиме для отладки и тестирования"""
+    """Запуск в CLI режиме для отладки и тестирования."""
     try:
         initializer = ApplicationInitializer(config)
         initializer.setup_dependencies()

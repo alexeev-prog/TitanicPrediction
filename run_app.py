@@ -49,7 +49,7 @@ def main():
     print(f"Command: {' '.join(cmd)}")
 
     try:
-        subprocess.run(cmd)
+        subprocess.run(cmd, check=False)
     except KeyboardInterrupt:
         print("\nApplication stopped by user")
     except Exception as e:

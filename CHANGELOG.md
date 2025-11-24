@@ -1,3 +1,9 @@
+commit 29218aabb01eade09426889c5d2fad45b6540849
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Mon Nov 24 07:47:03 2025 +0700
+
+    update readme and codestyle in interface
+
 commit 4986b91ba64d14934959fd047a64cd1c308680f4
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Sun Nov 23 22:11:53 2025 +0700

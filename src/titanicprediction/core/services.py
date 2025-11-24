@@ -1,7 +1,7 @@
 import time
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, List, Protocol
+from typing import Any, Protocol
 
 import numpy as np
 import pandas as pd
@@ -42,9 +42,9 @@ class TrainingResult:
     model: TrainedModel
     training_time: float
     final_loss: float
-    metrics: Dict[str, float]
-    learning_curve: List[float]
-    feature_importance: Dict[str, float]
+    metrics: dict[str, float]
+    learning_curve: list[float]
+    feature_importance: dict[str, float]
     config: TrainingConfig
 
 
@@ -55,7 +55,7 @@ class EvaluationResult:
     recall: float
     f1_score: float
     confusion_matrix: np.ndarray
-    classification_report: Dict[str, Any]
+    classification_report: dict[str, Any]
 
 
 @dataclass(frozen=True)
@@ -69,7 +69,7 @@ class PredictionResult:
 
 @dataclass(frozen=True)
 class CrossValidationResult:
-    fold_results: List[EvaluationResult]
+    fold_results: list[EvaluationResult]
     mean_accuracy: float
     mean_precision: float
     mean_recall: float
@@ -104,7 +104,7 @@ class IModelTrainingService(Protocol):
 class IPredictionService(Protocol):
     def predict_survival(self, passenger: Passenger) -> PredictionResult: ...
 
-    def batch_predict(self, passengers: List[Passenger]) -> List[PredictionResult]: ...
+    def batch_predict(self, passengers: list[Passenger]) -> list[PredictionResult]: ...
 
     def get_prediction_confidence(
         self, prediction: PredictionResult
@@ -210,7 +210,7 @@ class ModelTrainingService:
         if X_test.shape[1] != len(model.feature_names):
             aligned_X_test = np.zeros((X_test.shape[0], len(model.feature_names)))
 
-            for i, feature_name in enumerate(model.feature_names):
+            for i, _feature_name in enumerate(model.feature_names):
                 if i < X_test.shape[1]:
                     aligned_X_test[:, i] = X_test[:, i]
 
@@ -253,9 +253,7 @@ class ModelTrainingService:
             else:
                 aligned_features[feature] = 0.0
 
-        aligned_features = aligned_features[model.feature_names]
-
-        return aligned_features
+        return aligned_features[model.feature_names]
 
     def cross_validate(
         self, dataset: Dataset, config: TrainingConfig, folds: int = 5
@@ -305,7 +303,7 @@ class ModelTrainingService:
             std_f1=np.std(f1_scores),
         )
 
-    def _calculate_feature_importance(self, model: TrainedModel) -> Dict[str, float]:
+    def _calculate_feature_importance(self, model: TrainedModel) -> dict[str, float]:
         importance = {}
         total_importance = np.sum(np.abs(model.weights))
 
@@ -389,7 +387,7 @@ class PredictionService:
             )
 
     def _align_features(
-        self, features: np.ndarray, expected_feature_names: List[str]
+        self, features: np.ndarray, expected_feature_names: list[str]
     ) -> np.ndarray:
         expected_count = len(expected_feature_names)
         current_count = features.shape[1]
@@ -404,7 +402,7 @@ class PredictionService:
 
         return aligned_features
 
-    def batch_predict(self, passengers: List[Passenger]) -> List[PredictionResult]:
+    def batch_predict(self, passengers: list[Passenger]) -> list[PredictionResult]:
         return [self.predict_survival(passenger) for passenger in passengers]
 
     def get_prediction_confidence(
@@ -461,7 +459,7 @@ class ModelExplanationService:
             confidence_level=confidence_level,
         )
 
-    def get_model_statistics(self, model: TrainedModel) -> Dict[str, Any]:
+    def get_model_statistics(self, model: TrainedModel) -> dict[str, Any]:
         weights = model.weights
         return {
             "total_features": len(weights),
@@ -476,7 +474,7 @@ class ModelExplanationService:
 
     def _calculate_feature_impacts(
         self, passenger: Passenger
-    ) -> List[FeatureImpactAnalysis]:
+    ) -> list[FeatureImpactAnalysis]:
         model = self.prediction_service.model
         preprocessor = self.prediction_service.preprocessor
 
@@ -536,8 +534,8 @@ class ModelExplanationService:
         return sorted(feature_impacts, key=lambda x: abs(x.impact_score), reverse=True)
 
     def _extract_decision_factors(
-        self, feature_impacts: List[FeatureImpactAnalysis]
-    ) -> List[str]:
+        self, feature_impacts: list[FeatureImpactAnalysis]
+    ) -> list[str]:
         factors = []
         top_impacts = feature_impacts[:5]
 
@@ -552,10 +550,9 @@ class ModelExplanationService:
     def _determine_confidence_level(self, probability: float) -> str:
         if probability > 0.8 or probability < 0.2:
             return "High"
-        elif probability > 0.7 or probability < 0.3:
+        if probability > 0.7 or probability < 0.3:
             return "Medium"
-        else:
-            return "Low"
+        return "Low"
 
 
 class ServiceFactory:
