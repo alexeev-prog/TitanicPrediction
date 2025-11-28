@@ -144,7 +144,7 @@ class ModelTrainingService:
         y_train = processed_data.target.values.astype(int)
 
         result = gradient_descent(
-            X=X_train_normalized,
+            x=X_train_normalized,
             y=y_train,
             learning_rate=config.learning_rate,
             epochs=config.epochs,
