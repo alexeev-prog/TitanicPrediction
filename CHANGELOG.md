@@ -1,3 +1,15 @@
+commit 25f3559d3265986c1e82d181591b68386f315c7c
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Fri Nov 28 09:23:29 2025 +0700
+
+    fix naming bug in services
+
+commit fcc4cf2c40408960dc2c67c3ffff4505c3302c1d
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Mon Nov 24 19:02:18 2025 +0700
+
+    update codestyle rules and apply this
+
 commit 29218aabb01eade09426889c5d2fad45b6540849
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Mon Nov 24 07:47:03 2025 +0700

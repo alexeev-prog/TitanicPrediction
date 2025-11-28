@@ -94,14 +94,20 @@ class PlotComponent:
                 st.rerun()
 
         with col2:
-            if st.button("Скачать", key=f"download_{title}"):
+            download_key = f"download_{title}_{hash(plot_path)}"
+
+            try:
                 with open(plot_path, "rb") as file:
+                    file_data = file.read()
                     st.download_button(
                         label="Скачать изображение",
-                        data=file,
+                        data=file_data,
                         file_name=plot_path.name,
                         mime="image/png",
+                        key=download_key,
                     )
+            except Exception as e:
+                st.error(f"Ошибка при подготовке файла для скачивания: {e}")
 
 
 class ModelMetricsComponent:
@@ -474,7 +480,7 @@ class DocumentationPage:
         #### Документация и мониторинг:
         - **Комплексная документация**: Техническая и пользовательская
         - **Юзабилити-тестирование**: Оптимизация пользовательского пути
-        - **Механизмы мониторинга**: Отслеживание производительности в эксплуатации
+        - **Механизмы мониторига**: Отслеживание производительности в эксплуатации
         """
         )
 
@@ -655,12 +661,6 @@ class DocumentationPage:
         - **Документация**: Теоретическая и техническая документация
         """
         )
-
-        # TODO: create pdf creation
-        # if st.button("Сгенерировать полную документацию PDF"):
-        #     st.info(
-        #         "Функция генерации PDF документации будет реализована в будущих версиях"
-        #     )
 
 
 class HomePage:
@@ -1140,35 +1140,33 @@ class DataAnalysisPage:
 
         self._create_interactive_plots(dataset=dataset)
 
-        if st.button("Сгенерировать графики анализа", type="primary"):
-            with st.spinner("Создание визуализаций..."):
-                try:
-                    visualizer = EDAVisualizer()
+        try:
+            visualizer = EDAVisualizer()
 
-                    survival_plots = visualizer.create_survival_analysis_plots(dataset)
-                    demographic_plots = visualizer.create_demographic_plots(dataset)
-                    correlation_plots = visualizer.create_correlation_analysis(dataset)
+            survival_plots = visualizer.create_survival_analysis_plots(dataset)
+            demographic_plots = visualizer.create_demographic_plots(dataset)
+            correlation_plots = visualizer.create_correlation_analysis(dataset)
 
-                    plot_component = PlotComponent()
+            plot_component = PlotComponent()
 
-                    st.subheader("Анализ выживаемости")
-                    cols = st.columns(2)
-                    for i, (name, path) in enumerate(survival_plots.items()):
-                        with cols[i % 2]:
-                            plot_component.render(path, name.replace("_", " ").title())
+            st.subheader("Анализ выживаемости")
+            cols = st.columns(2)
+            for i, (name, path) in enumerate(survival_plots.items()):
+                with cols[i % 2]:
+                    plot_component.render(path, name.replace("_", " ").title())
 
-                    st.subheader("Демографический анализ")
-                    cols = st.columns(2)
-                    for i, (name, path) in enumerate(demographic_plots.items()):
-                        with cols[i % 2]:
-                            plot_component.render(path, name.replace("_", " ").title())
+            st.subheader("Демографический анализ")
+            cols = st.columns(2)
+            for i, (name, path) in enumerate(demographic_plots.items()):
+                with cols[i % 2]:
+                    plot_component.render(path, name.replace("_", " ").title())
 
-                    st.subheader("Корреляционный анализ")
-                    for name, path in correlation_plots.items():
-                        plot_component.render(path, name.replace("_", " ").title())
+            st.subheader("Корреляционный анализ")
+            for name, path in correlation_plots.items():
+                plot_component.render(path, name.replace("_", " ").title())
 
-                except Exception as e:
-                    st.error(f"Ошибка генерации графиков: {e}")
+        except Exception as e:
+            st.error(f"Ошибка генерации графиков: {e}")
 
 
 class ModelTrainingPage:
