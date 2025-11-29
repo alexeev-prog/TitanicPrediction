@@ -1,3 +1,4 @@
+# web.py
 import os
 import sys
 from pathlib import Path
@@ -1196,20 +1197,25 @@ class ModelTrainingPage:
         with col1:
             learning_rate = st.slider("Скорость обучения", 0.001, 0.5, 0.05, 0.001)
             epochs = st.number_input("Эпохи", 1000, 100000, 3000, 100)
+            polynomial_degree = st.selectbox("Степень полинома", [1, 2, 3], index=1)
 
         with col2:
             test_size = st.slider("Размер теста", 0.1, 0.5, 0.2, 0.05)
             random_state = st.number_input("Случайное состояние", 0, 100, 42)
-
-        with col3:
             convergence_tol = st.number_input(
                 "Допуск сходимости",
                 1e-8,
                 1e-4,
                 1e-4,
                 1e-8,
+                format="%.8f",
             )
-            batch_size = st.selectbox("Размер батча", ["полный", 32, 64, 128], index=0)
+
+        with col3:
+            lambda_reg = st.slider("Регуляризация", 0.0, 1.0, 0.01, 0.01)
+            use_adam = st.checkbox("Использовать Adam оптимизатор", value=True)
+            beta1 = st.slider("Beta1 (Adam)", 0.8, 0.999, 0.9, 0.001)
+            beta2 = st.slider("Beta2 (Adam)", 0.8, 0.999, 0.999, 0.001)
 
         return {
             "learning_rate": learning_rate,
@@ -1217,7 +1223,11 @@ class ModelTrainingPage:
             "test_size": test_size,
             "random_state": random_state,
             "convergence_tol": convergence_tol,
-            "batch_size": batch_size,
+            "lambda_reg": lambda_reg,
+            "polynomial_degree": polynomial_degree,
+            "use_adam": use_adam,
+            "beta1": beta1,
+            "beta2": beta2,
         }
 
     def _train_model(self, state: AppState, config: dict[str, Any]) -> None:
@@ -1237,6 +1247,11 @@ class ModelTrainingPage:
                     test_size=config["test_size"],
                     random_state=config["random_state"],
                     convergence_tol=config["convergence_tol"],
+                    lambda_reg=config["lambda_reg"],
+                    polynomial_degree=config["polynomial_degree"],
+                    use_adam=config["use_adam"],
+                    beta1=config["beta1"],
+                    beta2=config["beta2"],
                 )
 
                 training_result = training_service.train_model(
@@ -1278,6 +1293,7 @@ class ModelTrainingPage:
 
             if training_result:
                 st.metric("Время обучения", f"{training_result.training_time:.2f}s")
+                st.metric("Степень полинома", training_result.config.polynomial_degree)
             else:
                 st.metric("Время обучения", "Н/Д")
 

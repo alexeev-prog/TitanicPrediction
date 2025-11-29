@@ -43,7 +43,7 @@ def sigmoid(z: FloatArray) -> FloatArray:
     return 1 / (1 + np.exp(-z))
 
 
-def add_polynomial_features(x: FloatArray, degree: int = 2) -> FloatArray:
+def add_polynomial_features(x: FloatArray, degree: int = 3) -> FloatArray:
     """
     Add polynomial features to the input data.
 

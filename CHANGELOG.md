@@ -1,3 +1,9 @@
+commit 58c391f13ad0503b2ff70ef7df71e5e94bb7691f
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Fri Nov 28 21:46:42 2025 +0700
+
+    fix bugs with plots
+
 commit 25f3559d3265986c1e82d181591b68386f315c7c
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Fri Nov 28 09:23:29 2025 +0700

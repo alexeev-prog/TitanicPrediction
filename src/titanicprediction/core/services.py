@@ -35,6 +35,11 @@ class TrainingConfig:
     random_state: int = 42
     convergence_tol: float = 1e-6
     lambda_reg: float = 0.01
+    polynomial_degree: int = 2
+    use_adam: bool = True
+    beta1: float = 0.9
+    beta2: float = 0.999
+    early_stopping_patience: int = 50
 
 
 @dataclass(frozen=True)
@@ -128,7 +133,7 @@ class ModelTrainingService:
         original_numeric_feature_names = numeric_features.columns.tolist()
 
         self.poly_transformer = PolynomialFeatures(
-            degree=2, include_bias=False, interaction_only=True
+            degree=config.polynomial_degree, include_bias=False, interaction_only=True
         )
         X_train_poly = self.poly_transformer.fit_transform(X_train)
 
@@ -143,14 +148,28 @@ class ModelTrainingService:
 
         y_train = processed_data.target.values.astype(int)
 
-        result = gradient_descent(
-            x=X_train_normalized,
-            y=y_train,
-            learning_rate=config.learning_rate,
-            epochs=config.epochs,
-            convergence_tol=config.convergence_tol,
-            lambda_reg=config.lambda_reg,
-        )
+        if config.use_adam:
+            result = gradient_descent(
+                x=X_train_normalized,
+                y=y_train,
+                learning_rate=config.learning_rate,
+                epochs=config.epochs,
+                convergence_tol=config.convergence_tol,
+                beta1=config.beta1,
+                beta2=config.beta2,
+                lambda_reg=config.lambda_reg,
+            )
+        else:
+            from titanicprediction.core.algorithms import standard_gradient_descent
+
+            result = standard_gradient_descent(
+                x=X_train_normalized,
+                y=y_train,
+                learning_rate=config.learning_rate,
+                epochs=config.epochs,
+                convergence_tol=config.convergence_tol,
+                lambda_reg=config.lambda_reg,
+            )
 
         training_time = time.time() - start_time
 
