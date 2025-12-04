@@ -30,7 +30,8 @@ class CSVDataRepository:
             df = pd.read_csv(self.file_path)
 
             if self.target_column not in df.columns:
-                raise ValueError(f"Target column '{self.target_column}' not found")
+                raise ValueError(
+                    f"Target column '{self.target_column}' not found")
 
             features = df.drop(columns=[self.target_column])
             target = df[self.target_column]

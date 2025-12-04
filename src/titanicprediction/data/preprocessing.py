@@ -5,12 +5,8 @@ from typing import Any, Literal, Protocol
 import pandas as pd
 from loguru import logger
 from sklearn.impute import SimpleImputer
-from sklearn.preprocessing import (
-    LabelEncoder,
-    MinMaxScaler,
-    RobustScaler,
-    StandardScaler,
-)
+from sklearn.preprocessing import (LabelEncoder, MinMaxScaler, RobustScaler,
+                                   StandardScaler)
 
 from titanicprediction.entities.core import Dataset
 
@@ -108,7 +104,8 @@ class CategoricalEncoder:
                 unique_values = self._encoders[column]
                 for value in unique_values:
                     new_col_name = f"{column}_{value}"
-                    features[new_col_name] = (features[column] == value).astype(int)
+                    features[new_col_name] = (
+                        features[column] == value).astype(int)
 
                 features = features.drop(columns=[column])
                 self._update_feature_names(column, unique_values)
@@ -255,7 +252,8 @@ class TitleExtractor:
 
             return "Other"
 
-        features[self.title_column] = features[self.name_column].apply(extract_title)
+        features[self.title_column] = features[self.name_column].apply(
+            extract_title)
 
         for original, mapped in self.custom_mappings.items():
             features[self.title_column] = features[self.title_column].replace(
@@ -301,7 +299,8 @@ class DataPreprocessor:
 
     def transform(self, dataset: Dataset) -> Dataset:
         if not self.fitted:
-            raise ValueError("Preprocessor must be fitted before transformation")
+            raise ValueError(
+                "Preprocessor must be fitted before transformation")
 
         current_dataset = dataset
 
@@ -347,7 +346,8 @@ class ColumnDropper:
     def transform(self, dataset: Dataset) -> Dataset:
         features = dataset.features.copy()
 
-        columns_to_drop = [col for col in self.columns if col in features.columns]
+        columns_to_drop = [
+            col for col in self.columns if col in features.columns]
         if columns_to_drop:
             features = features.drop(columns=columns_to_drop)
             new_feature_names = [

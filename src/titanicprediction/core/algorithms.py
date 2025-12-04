@@ -82,22 +82,25 @@ def binary_cross_entropy(
     """
     y_pred = np.clip(y_pred, epsilon, 1 - epsilon)
 
+    n_total = len(y_true)
     n_pos = np.sum(y_true)
-    n_neg = len(y_true) - n_pos
+    n_neg = n_total - n_pos
 
     if n_pos > 0 and n_neg > 0:
-        weight_pos = n_neg / len(y_true)
-        weight_neg = n_pos / len(y_true)
-        weights_class = np.where(y_true == 1, weight_pos, weight_neg)
+        weight_pos = n_total / (2 * n_pos)
+        weight_neg = n_total / (2 * n_neg)
 
-        loss = -np.mean(
-            weights_class
-            * (y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
-        )
-        reg_loss = (lambda_reg / (2 * len(y_true))) * np.sum(weights**2)
-        return float(loss + reg_loss)
-    loss = -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
-    reg_loss = (lambda_reg / (2 * len(y_true))) * np.sum(weights**2)
+        sample_weights = np.where(y_true == 1, weight_pos, weight_neg)
+
+        loss_per_sample = -(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+
+        weighted_loss = np.sum(sample_weights * loss_per_sample)
+        loss = weighted_loss / np.sum(sample_weights)
+    else:
+        loss = -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+
+    reg_loss = (lambda_reg / (2 * n_total)) * np.sum(weights**2)
+
     return float(loss + reg_loss)
 
 
@@ -105,6 +108,8 @@ def compute_gradients(
     x: FloatArray,
     y_true: FloatArray,
     y_pred: FloatArray,
+    weights: FloatArray,
+    lambda_reg: float = 0.01,
     class_weight: dict | None = None,
 ) -> tuple[FloatArray, float]:
     """
@@ -114,6 +119,8 @@ def compute_gradients(
         x: Input feature matrix.
         y_true: Ground truth labels.
         y_pred: Predicted probabilities.
+        weights: Model weights for regularization.
+        lambda_reg: Regularization parameter. Defaults to 0.01.
         class_weight: Optional class weights dictionary.
 
     Returns:
@@ -126,22 +133,24 @@ def compute_gradients(
     error = y_pred - y_true
 
     n_pos = np.sum(y_true)
-    n_neg = len(y_true) - n_pos
+    n_neg = m - n_pos
 
     if n_pos > 0 and n_neg > 0:
-        weight_neg = n_pos / len(y_true)
-        weight_pos = n_neg / len(y_true)
+        weight_neg = n_pos / m
+        weight_pos = n_neg / m
 
-        weights = np.where(y_true == 1, weight_pos, weight_neg)
-        error = error * weights
+        sample_weights = np.where(y_true == 1, weight_pos, weight_neg)
+        error = error * sample_weights
 
-        dw = (1 / np.sum(weights)) * np.dot(x.T, error)
-        db = (1 / np.sum(weights)) * np.sum(error)
+        dw = (1 / np.sum(sample_weights)) * np.dot(x.T, error)
+        db = (1 / np.sum(sample_weights)) * np.sum(error)
     else:
         dw = (1 / m) * np.dot(x.T, error)
         db = (1 / m) * np.sum(error)
 
-    return dw, float(db)
+    dw_reg = dw + (lambda_reg / m) * weights
+
+    return dw_reg, float(db)
 
 
 def gradient_descent(
@@ -190,18 +199,20 @@ def gradient_descent(
         loss = binary_cross_entropy(y, predictions, weights, lambda_reg)
         loss_history.append(loss)
 
-        dw, db = compute_gradients(x, y, predictions)
-        dw_reg = dw + (lambda_reg / len(y)) * weights
+        dw, db = compute_gradients(x, y, predictions, weights, lambda_reg)
 
-        m_dw = beta1 * m_dw + (1 - beta1) * dw_reg
+        m_dw = beta1 * m_dw + (1 - beta1) * dw
         m_db = beta1 * m_db + (1 - beta1) * db
-        v_dw = beta2 * v_dw + (1 - beta2) * (dw_reg**2)
+        v_dw = beta2 * v_dw + (1 - beta2) * (dw**2)
         v_db = beta2 * v_db + (1 - beta2) * (db**2)
 
-        m_dw_corrected = m_dw / (1 - beta1**epoch)
-        m_db_corrected = m_db / (1 - beta1**epoch)
-        v_dw_corrected = v_dw / (1 - beta2**epoch)
-        v_db_corrected = v_db / (1 - beta2**epoch)
+        beta1_power = max(beta1**epoch, 1e-12)
+        beta2_power = max(beta2**epoch, 1e-12)
+
+        m_dw_corrected = m_dw / (1 - beta1_power)
+        m_db_corrected = m_db / (1 - beta1_power)
+        v_dw_corrected = v_dw / (1 - beta2_power)
+        v_db_corrected = v_db / (1 - beta2_power)
 
         weights -= learning_rate * (
             m_dw_corrected / (np.sqrt(v_dw_corrected) + epsilon)
@@ -216,6 +227,7 @@ def gradient_descent(
         "epochs_completed": len(loss_history),
         "learning_rate": learning_rate,
         "optimizer": "adam",
+        "lambda_reg": lambda_reg,
     }
 
     return GradientDescentResult(
@@ -267,11 +279,9 @@ def standard_gradient_descent(
         loss = binary_cross_entropy(y, predictions, weights, lambda_reg)
         loss_history.append(loss)
 
-        dw, db = compute_gradients(x, y, predictions)
+        dw, db = compute_gradients(x, y, predictions, weights, lambda_reg)
 
-        dw_reg = dw + (lambda_reg / len(y)) * weights
-
-        v_dw = beta * v_dw + (1 - beta) * dw_reg
+        v_dw = beta * v_dw + (1 - beta) * dw
         v_db = beta * v_db + (1 - beta) * db
 
         weights -= learning_rate * v_dw
@@ -287,6 +297,7 @@ def standard_gradient_descent(
         "epochs_completed": len(loss_history),
         "learning_rate": learning_rate,
         "with_momentum": True,
+        "lambda_reg": lambda_reg,
     }
 
     return GradientDescentResult(
@@ -324,7 +335,7 @@ def predict(
         x: Input feature matrix.
         weights: Model weights.
         bias: Model bias.
-        threshold: Classification threshold. Defaults to 0.35.
+        threshold: Classification threshold. Defaults to 0.5.
 
     Returns:
         Binary predictions (0 or 1).
@@ -333,6 +344,6 @@ def predict(
     probabilities = predict_proba(x, weights, bias)
 
     if threshold is None:
-        threshold = 0.35
+        threshold = 0.5
 
     return (probabilities >= threshold).astype(int)

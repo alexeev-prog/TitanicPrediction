@@ -1,3 +1,9 @@
+commit 07913cd8a8e2ab1653982c6e60cb804e2eeb9fd0
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Sat Nov 29 17:01:12 2025 +0700
+
+    update algorithms, fix bugs in webapp, improve interface
+
 commit 58c391f13ad0503b2ff70ef7df71e5e94bb7691f
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Fri Nov 28 21:46:42 2025 +0700

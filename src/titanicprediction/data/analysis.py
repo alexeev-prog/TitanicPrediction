@@ -56,7 +56,8 @@ class PlotResult:
 
 
 class IVisualizer(Protocol):
-    def create_plot(self, data: Any, plot_config: PlotConfig) -> PlotResult: ...
+    def create_plot(self, data: Any,
+                    plot_config: PlotConfig) -> PlotResult: ...
 
     def save_plot(self, plot: PlotResult, filename: str) -> Path: ...
     def get_supported_formats(self) -> list[str]: ...
@@ -88,7 +89,8 @@ class DistributionVisualizer:
         self, ax: plt.Axes, data: pd.Series, config: PlotConfig
     ) -> None:
         color = config.colors[0] if config.colors else "skyblue"
-        ax.hist(data.dropna(), bins=30, alpha=0.7, color=color, edgecolor="black")
+        ax.hist(data.dropna(), bins=30, alpha=0.7,
+                color=color, edgecolor="black")
         ax.set_xlabel(config.x_label, fontsize=config.font_size)
         ax.set_ylabel("Frequency", fontsize=config.font_size)
 
@@ -105,7 +107,8 @@ class DistributionVisualizer:
         ax.set_ylabel(config.y_label, fontsize=config.font_size)
 
     def _apply_common_styling(self, ax: plt.Axes, config: PlotConfig) -> None:
-        ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+        ax.set_title(config.title, fontsize=config.font_size +
+                     2, fontweight="bold")
         if config.grid:
             ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=config.font_size - 2)
@@ -113,7 +116,8 @@ class DistributionVisualizer:
 
 class CorrelationVisualizer:
     def _apply_common_styling(self, ax: plt.Axes, config: PlotConfig) -> None:
-        ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+        ax.set_title(config.title, fontsize=config.font_size +
+                     2, fontweight="bold")
         if config.grid:
             ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=config.font_size - 2)
@@ -150,7 +154,8 @@ class CorrelationVisualizer:
             ax=ax,
             cbar_kws={"shrink": 0.8},
         )
-        ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+        ax.set_title(config.title, fontsize=config.font_size +
+                     2, fontweight="bold")
 
 
 class TrainingVisualizer:
@@ -178,7 +183,8 @@ class TrainingVisualizer:
         self, ax: plt.Axes, loss_history: list[float], config: PlotConfig
     ) -> None:
         color = config.colors[0] if config.colors else "blue"
-        ax.plot(range(len(loss_history)), loss_history, color=color, linewidth=2)
+        ax.plot(range(len(loss_history)),
+                loss_history, color=color, linewidth=2)
         ax.set_xlabel("Epoch", fontsize=config.font_size)
         ax.set_ylabel("Loss", fontsize=config.font_size)
         ax.set_yscale("log")
@@ -252,7 +258,8 @@ class FeatureAnalysisVisualizer:
     ) -> None:
         feature_name = config.x_label.lower()
         if feature_name in dataset.features.columns:
-            feature_data = dataset.features[feature_name].value_counts().sort_index()
+            feature_data = dataset.features[feature_name].value_counts(
+            ).sort_index()
             colors = (
                 config.colors
                 if config.colors
@@ -269,7 +276,8 @@ class FeatureAnalysisVisualizer:
             ax.set_xlabel(config.x_label, fontsize=config.font_size)
             ax.set_ylabel("Count", fontsize=config.font_size)
             ax.set_xticks(range(len(feature_data)))
-            ax.set_xticklabels([str(x) for x in feature_data.index], rotation=45)
+            ax.set_xticklabels([str(x)
+                               for x in feature_data.index], rotation=45)
 
     def _create_box_plot(
         self, ax: plt.Axes, dataset: Dataset, config: PlotConfig
@@ -355,7 +363,8 @@ class FeatureAnalysisVisualizer:
     ) -> None:
         feature_name = config.x_label.lower()
         if feature_name in dataset.features.columns and dataset.target is not None:
-            cross_tab = pd.crosstab(dataset.features[feature_name], dataset.target)
+            cross_tab = pd.crosstab(
+                dataset.features[feature_name], dataset.target)
             colors = config.colors if config.colors else ["#ff6b6b", "#4ecdc4"]
 
             bar_width = 0.35
@@ -380,7 +389,8 @@ class FeatureAnalysisVisualizer:
                 ax.legend()
 
     def _apply_common_styling(self, ax: plt.Axes, config: PlotConfig) -> None:
-        ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+        ax.set_title(config.title, fontsize=config.font_size +
+                     2, fontweight="bold")
         if config.grid:
             ax.grid(True, alpha=0.3)
         ax.tick_params(labelsize=config.font_size - 2)
@@ -426,9 +436,11 @@ class EDAVisualizer:
                 startangle=90,
             )
 
-            ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+            ax.set_title(config.title, fontsize=config.font_size +
+                         2, fontweight="bold")
 
-            plot_result = PlotResult(figure=fig, axes=ax, config=config, metadata={})
+            plot_result = PlotResult(
+                figure=fig, axes=ax, config=config, metadata={})
             plots["survival_distribution"] = self._save_plot(
                 plot_result, "survival_distribution"
             )
@@ -444,7 +456,8 @@ class EDAVisualizer:
 
             fig, ax = plt.subplots(figsize=config.figsize)
 
-            survival_by_class = plot_df.groupby("Pclass")["Survived"].mean() * 100
+            survival_by_class = plot_df.groupby(
+                "Pclass")["Survived"].mean() * 100
 
             ax.bar(
                 range(len(survival_by_class)),
@@ -457,8 +470,10 @@ class EDAVisualizer:
             ax.set_xlabel("Passenger Class", fontsize=config.font_size)
             ax.set_ylabel("Survival Rate (%)", fontsize=config.font_size)
             ax.set_xticks(range(len(survival_by_class)))
-            ax.set_xticklabels([f"Class {cls}" for cls in survival_by_class.index])
-            ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+            ax.set_xticklabels(
+                [f"Class {cls}" for cls in survival_by_class.index])
+            ax.set_title(config.title, fontsize=config.font_size +
+                         2, fontweight="bold")
 
             for i, value in enumerate(survival_by_class.values):
                 ax.text(
@@ -470,7 +485,8 @@ class EDAVisualizer:
                     fontsize=config.font_size - 2,
                 )
 
-            plot_result = PlotResult(figure=fig, axes=ax, config=config, metadata={})
+            plot_result = PlotResult(
+                figure=fig, axes=ax, config=config, metadata={})
             plots["survival_by_class"] = self._save_plot(
                 plot_result, "survival_by_class"
             )
@@ -508,8 +524,10 @@ class EDAVisualizer:
             ax.set_xlabel("Gender", fontsize=config.font_size)
             ax.set_ylabel("Survival Rate (%)", fontsize=config.font_size)
             ax.set_xticks(range(len(survival_by_sex)))
-            ax.set_xticklabels([sex.capitalize() for sex in survival_by_sex.index])
-            ax.set_title(config.title, fontsize=config.font_size + 2, fontweight="bold")
+            ax.set_xticklabels([sex.capitalize()
+                               for sex in survival_by_sex.index])
+            ax.set_title(config.title, fontsize=config.font_size +
+                         2, fontweight="bold")
 
             for i, value in enumerate(survival_by_sex.values):
                 ax.text(
@@ -521,7 +539,8 @@ class EDAVisualizer:
                     fontsize=config.font_size - 2,
                 )
 
-            plot_result = PlotResult(figure=fig, axes=ax, config=config, metadata={})
+            plot_result = PlotResult(
+                figure=fig, axes=ax, config=config, metadata={})
             plots["survival_by_gender"] = self._save_plot(
                 plot_result, "survival_by_gender"
             )
@@ -537,7 +556,8 @@ class EDAVisualizer:
             plot_result = self.distribution_visualizer.create_plot(
                 plot_df["Age"].dropna(), config
             )
-            plots["age_distribution"] = self._save_plot(plot_result, "age_distribution")
+            plots["age_distribution"] = self._save_plot(
+                plot_result, "age_distribution")
 
         return plots
 
@@ -558,7 +578,8 @@ class EDAVisualizer:
         plot_result = self.correlation_visualizer.create_plot(
             correlation_matrix, config
         )
-        plots["correlation_matrix"] = self._save_plot(plot_result, "correlation_matrix")
+        plots["correlation_matrix"] = self._save_plot(
+            plot_result, "correlation_matrix")
 
         return plots
 
@@ -573,8 +594,10 @@ class EDAVisualizer:
             colors=["blue"],
         )
 
-        plot_result = self.training_visualizer.create_plot(loss_history, config)
-        plots["training_curve"] = self._save_plot(plot_result, "training_curve")
+        plot_result = self.training_visualizer.create_plot(
+            loss_history, config)
+        plots["training_curve"] = self._save_plot(
+            plot_result, "training_curve")
 
         return plots
 
@@ -582,7 +605,8 @@ class EDAVisualizer:
         plots = {}
 
         importance_df = pd.DataFrame(
-            {"feature": model.feature_names, "importance": np.abs(model.weights)}
+            {"feature": model.feature_names,
+                "importance": np.abs(model.weights)}
         ).sort_values("importance", ascending=True)
 
         config = PlotConfig(
@@ -602,12 +626,14 @@ class EDAVisualizer:
         )
 
         plot_result = self.feature_visualizer.create_plot(temp_dataset, config)
-        plots["feature_importance"] = self._save_plot(plot_result, "feature_importance")
+        plots["feature_importance"] = self._save_plot(
+            plot_result, "feature_importance")
 
         return plots
 
     def _save_plot(self, plot_result: PlotResult, filename: str) -> Path:
-        filepath = self.output_dir / f"{filename}.{plot_result.config.save_format}"
+        filepath = self.output_dir / \
+            f"{filename}.{plot_result.config.save_format}"
         plot_result.figure.savefig(
             filepath, dpi=plot_result.config.dpi, bbox_inches="tight", facecolor="white"
         )

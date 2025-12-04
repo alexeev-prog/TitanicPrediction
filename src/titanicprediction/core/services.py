@@ -16,7 +16,12 @@ from sklearn.metrics import (
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import PolynomialFeatures
 
-from titanicprediction.core.algorithms import gradient_descent, predict, predict_proba
+from titanicprediction.core.algorithms import (
+    gradient_descent,
+    predict,
+    predict_proba,
+    standard_gradient_descent,
+)
 from titanicprediction.data.preprocessing import DataPreprocessor
 from titanicprediction.entities.core import (
     Dataset,
@@ -119,9 +124,6 @@ class IPredictionService(Protocol):
 class ModelTrainingService:
     def __init__(self, preprocessor: DataPreprocessor):
         self.preprocessor = preprocessor
-        self.poly_transformer = None
-        self.X_mean = None
-        self.X_std = None
 
     def train_model(self, dataset: Dataset, config: TrainingConfig) -> TrainingResult:
         start_time = time.time()
@@ -132,19 +134,19 @@ class ModelTrainingService:
 
         original_numeric_feature_names = numeric_features.columns.tolist()
 
-        self.poly_transformer = PolynomialFeatures(
+        poly_transformer = PolynomialFeatures(
             degree=config.polynomial_degree, include_bias=False, interaction_only=True
         )
-        X_train_poly = self.poly_transformer.fit_transform(X_train)
+        X_train_poly = poly_transformer.fit_transform(X_train)
 
-        poly_feature_names = self.poly_transformer.get_feature_names_out(
+        poly_feature_names = poly_transformer.get_feature_names_out(
             original_numeric_feature_names
         )
 
-        self.X_mean = np.mean(X_train_poly, axis=0)
-        self.X_std = np.std(X_train_poly, axis=0)
-        self.X_std[self.X_std == 0] = 1
-        X_train_normalized = (X_train_poly - self.X_mean) / self.X_std
+        X_mean = np.mean(X_train_poly, axis=0)
+        X_std = np.std(X_train_poly, axis=0)
+        X_std[X_std == 0] = 1
+        X_train_normalized = (X_train_poly - X_mean) / X_std
 
         y_train = processed_data.target.values.astype(int)
 
@@ -160,8 +162,6 @@ class ModelTrainingService:
                 lambda_reg=config.lambda_reg,
             )
         else:
-            from titanicprediction.core.algorithms import standard_gradient_descent
-
             result = standard_gradient_descent(
                 x=X_train_normalized,
                 y=y_train,
@@ -182,10 +182,14 @@ class ModelTrainingService:
             training_history=result.loss_history,
             model_config=config.__dict__,
             preprocessing_artifacts={
-                "poly_transformer": self.poly_transformer,
-                "X_mean": self.X_mean,
-                "X_std": self.X_std,
+                "poly_transformer": poly_transformer,
+                "X_mean": X_mean,
+                "X_std": X_std,
                 "original_feature_names": original_numeric_feature_names,
+                "config": {
+                    "polynomial_degree": config.polynomial_degree,
+                    "interaction_only": True,
+                },
             },
         )
 
@@ -205,24 +209,21 @@ class ModelTrainingService:
         processed_test = self.preprocessor.transform(test_data)
 
         preprocessing_artifacts = model.preprocessing_artifacts
-        self.poly_transformer = preprocessing_artifacts["poly_transformer"]
-        self.X_mean = preprocessing_artifacts["X_mean"]
-        self.X_std = preprocessing_artifacts["X_std"]
+        if not preprocessing_artifacts:
+            raise ValueError("Model does not have preprocessing artifacts")
+
+        poly_transformer = preprocessing_artifacts["poly_transformer"]
+        X_mean = preprocessing_artifacts["X_mean"]
+        X_std = preprocessing_artifacts["X_std"]
 
         numeric_test_features = processed_test.features.select_dtypes(
             include=[np.number]
         )
         X_test_original = numeric_test_features.values.astype(np.float64)
 
-        if hasattr(self, "poly_transformer"):
-            X_test_poly = self.poly_transformer.transform(X_test_original)
-        else:
-            X_test_poly = X_test_original
+        X_test_poly = poly_transformer.transform(X_test_original)
 
-        if hasattr(self, "X_mean") and hasattr(self, "X_std"):
-            X_test = (X_test_poly - self.X_mean) / self.X_std
-        else:
-            X_test = X_test_poly
+        X_test = (X_test_poly - X_mean) / X_std
 
         y_true = processed_test.target.values.astype(np.float64)
 
@@ -327,9 +328,12 @@ class ModelTrainingService:
         total_importance = np.sum(np.abs(model.weights))
 
         for i, feature_name in enumerate(model.feature_names):
-            importance[feature_name] = float(
-                np.abs(model.weights[i]) / total_importance
-            )
+            if total_importance > 0:
+                importance[feature_name] = float(
+                    np.abs(model.weights[i]) / total_importance * 100
+                )
+            else:
+                importance[feature_name] = 0.0
 
         return importance
 
@@ -339,6 +343,9 @@ class PredictionService:
         self.model = model
         self.preprocessor = preprocessor
         self.preprocessing_artifacts = model.preprocessing_artifacts
+
+        if not self.preprocessing_artifacts:
+            raise ValueError("Model must have preprocessing artifacts for prediction")
 
     def predict_survival(self, passenger: Passenger) -> PredictionResult:
         try:
@@ -355,12 +362,13 @@ class PredictionService:
             numeric_features = processed_data.features.select_dtypes(
                 include=[np.number]
             )
+
+            if numeric_features.empty:
+                raise ValueError("No numeric features after preprocessing")
+
             X_pred_original = numeric_features.values.astype(np.float64)
 
-            if (
-                self.preprocessing_artifacts
-                and "poly_transformer" in self.preprocessing_artifacts
-            ):
+            if "poly_transformer" in self.preprocessing_artifacts:
                 poly_transformer = self.preprocessing_artifacts["poly_transformer"]
                 X_pred_poly = poly_transformer.transform(X_pred_original)
 
@@ -382,14 +390,17 @@ class PredictionService:
             probability = predict_proba(X_pred, self.model.weights, self.model.bias)[0]
 
             if np.isnan(probability) or not np.isfinite(probability):
+                logger.warning(f"Invalid probability computed: {probability}")
                 probability = 0.5
 
+            probability = float(np.clip(probability, 0.0, 1.0))
+
             prediction = probability >= 0.5
-            confidence = min(1.0, max(0.0, self._calculate_confidence(probability)))
+            confidence = self._calculate_confidence(probability)
 
             return PredictionResult(
                 passenger=passenger,
-                probability=float(probability),
+                probability=probability,
                 prediction=bool(prediction),
                 confidence=confidence,
                 timestamp=datetime.now(),
@@ -397,13 +408,7 @@ class PredictionService:
 
         except Exception as e:
             logger.error(f"Prediction error: {e}")
-            return PredictionResult(
-                passenger=passenger,
-                probability=0.5,
-                prediction=False,
-                confidence=0.5,
-                timestamp=datetime.now(),
-            )
+            raise RuntimeError(f"Failed to make prediction: {e}")
 
     def _align_features(
         self, features: np.ndarray, expected_feature_names: list[str]
@@ -428,11 +433,21 @@ class PredictionService:
         self, prediction: PredictionResult
     ) -> ConfidenceInterval:
         probability = prediction.probability
-        margin_of_error = 1.96 * np.sqrt((probability * (1 - probability)) / 100)
+
+        n = 100
+        z = 1.96
+
+        p_hat = probability
+        denominator = 1 + z**2 / n
+
+        center = (p_hat + z**2 / (2 * n)) / denominator
+        margin = (z / denominator) * np.sqrt(
+            (p_hat * (1 - p_hat) / n) + (z**2 / (4 * n**2))
+        )
 
         return ConfidenceInterval(
-            lower_bound=max(0.0, probability - margin_of_error),
-            upper_bound=min(1.0, probability + margin_of_error),
+            lower_bound=max(0.0, center - margin),
+            upper_bound=min(1.0, center + margin),
             confidence_level=0.95,
         )
 
@@ -454,8 +469,10 @@ class PredictionService:
 
     def _calculate_confidence(self, probability: float) -> float:
         distance_from_decision = abs(probability - 0.5)
+
         confidence = 0.5 + distance_from_decision
-        return float(confidence)
+
+        return float(np.clip(confidence, 0.0, 1.0))
 
 
 @dataclass
@@ -489,6 +506,7 @@ class ModelExplanationService:
             "bias": float(model.bias),
             "weight_mean": float(weights.mean()),
             "weight_std": float(weights.std()),
+            "weights_sum": float(np.sum(weights)),
         }
 
     def _calculate_feature_impacts(
@@ -507,6 +525,10 @@ class ModelExplanationService:
 
         processed_data = preprocessor.transform(dummy_dataset)
         numeric_features = processed_data.features.select_dtypes(include=[np.number])
+
+        if numeric_features.empty:
+            return []
+
         X_original = numeric_features.values.astype(np.float64)
 
         preprocessing_artifacts = model.preprocessing_artifacts
@@ -533,12 +555,14 @@ class ModelExplanationService:
             X = aligned_X
 
         feature_impacts = []
+        total_impact = 0.0
+
         for i, feature_name in enumerate(model.feature_names):
             if i < len(model.weights):
                 feature_value = X[0][i]
                 weight = model.weights[i]
                 impact = weight * feature_value
-                contribution = abs(impact) / (abs(np.dot(X[0], model.weights)) + 1e-10)
+                total_impact += abs(impact)
 
                 feature_impacts.append(
                     FeatureImpactAnalysis(
@@ -546,9 +570,16 @@ class ModelExplanationService:
                         impact_score=float(impact),
                         weight=float(weight),
                         feature_value=float(feature_value),
-                        contribution=float(contribution),
+                        contribution=0.0,
                     )
                 )
+
+        if total_impact > 0:
+            for impact in feature_impacts:
+                impact.contribution = abs(impact.impact_score) / total_impact * 100
+        else:
+            for impact in feature_impacts:
+                impact.contribution = 0.0
 
         return sorted(feature_impacts, key=lambda x: abs(x.impact_score), reverse=True)
 
@@ -560,18 +591,22 @@ class ModelExplanationService:
 
         for impact in top_impacts:
             if impact.impact_score > 0:
-                factors.append(f"{impact.feature_name} increased survival chance")
+                direction = "увеличивает" if impact.weight > 0 else "уменьшает"
+                factors.append(f"{impact.feature_name} {direction} шанс выживания")
             else:
-                factors.append(f"{impact.feature_name} decreased survival chance")
+                direction = "уменьшает" if impact.weight > 0 else "увеличивает"
+                factors.append(f"{impact.feature_name} {direction} шанс выживания")
 
         return factors
 
     def _determine_confidence_level(self, probability: float) -> str:
-        if probability > 0.8 or probability < 0.2:
-            return "High"
-        if probability > 0.7 or probability < 0.3:
-            return "Medium"
-        return "Low"
+        distance = abs(probability - 0.5)
+
+        if distance > 0.3:  # probability < 0.2 or > 0.8
+            return "Высокий"
+        if distance > 0.15:  # probability < 0.35 or > 0.65
+            return "Средний"
+        return "Низкий"
 
 
 class ServiceFactory:
