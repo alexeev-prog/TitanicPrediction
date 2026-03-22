@@ -1,3 +1,9 @@
+commit d543f93b5c07b7990b5cefacb9bc139203d598b9
+Author: Alexeev Bronislav <alexeev.dev@mail.ru>
+Date:   Thu Dec 4 23:08:06 2025 +0700
+
+    fix math issues with algorithms
+
 commit 07913cd8a8e2ab1653982c6e60cb804e2eeb9fd0
 Author: Alexeev Bronislav <alexeev.dev@mail.ru>
 Date:   Sat Nov 29 17:01:12 2025 +0700

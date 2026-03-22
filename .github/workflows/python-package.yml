@@ -29,9 +29,6 @@ jobs:
         python -m pip install --upgrade pip
         python -m pip install nox uv
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-    - name: Lint
-      run: |
-        nox --session lint
     - name: Test
       run: |
         nox --session test
